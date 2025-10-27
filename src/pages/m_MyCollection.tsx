@@ -448,7 +448,6 @@ const MobileMyCollection: React.FC = () => {
         {/* 컨텐츠 영역 */}
         <div ref={containerRef} style={{ 
           paddingTop: activeTab === 'list' ? (showSearch ? '52px' : '48px') : '48px',
-          paddingBottom: '80px',
           overflowY: 'auto',
           height: 'calc(100vh - 108px)'
         }}>
