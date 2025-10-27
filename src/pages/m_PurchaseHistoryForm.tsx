@@ -12,6 +12,14 @@ interface IWhiskey {
   brand: string;
   image_url: string;
   type?: string;
+  region?: string;
+  abv?: number;
+  price_range?: string;
+  age?: number;
+}
+
+interface IWhiskeyWithPrice extends IWhiskey {
+  recentPrice?: number;
 }
 
 interface IPurchaseFormData {
@@ -42,9 +50,10 @@ interface IPurchaseFormData {
 const MobilePurchaseHistoryForm: React.FC = () => {
   const navigate = useNavigate();
   const [whiskeys, setWhiskeys] = useState<IWhiskey[]>([]);
-  const [selectedWhiskey, setSelectedWhiskey] = useState<IWhiskey | null>(null);
+  const [selectedWhiskey, setSelectedWhiskey] = useState<IWhiskeyWithPrice | null>(null);
   const [showWhiskeySelector, setShowWhiskeySelector] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState<IPurchaseFormData>({
     whiskeyId: '',
@@ -79,7 +88,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('whiskeys')
-        .select('id, name, brand, image_url, type')
+        .select('id, name, brand, image_url, type, region, abv, price_range, age')
         .order('name');
 
       if (error) throw error;
@@ -88,6 +97,45 @@ const MobilePurchaseHistoryForm: React.FC = () => {
       console.error('위스키 로드 오류:', error);
     }
   };
+
+  const loadWhiskeyPrice = async (whiskeyId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('whiskey_prices')
+        .select('price')
+        .eq('whiskey_id', whiskeyId)
+        .order('price_date', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!error && data) {
+        return data.price;
+      }
+      return null;
+    } catch (error) {
+      console.error('가격 조회 오류:', error);
+      return null;
+    }
+  };
+
+  const handleWhiskeySelect = async (whiskey: IWhiskey) => {
+    setSelectedWhiskey(whiskey);
+    handleInputChange('whiskeyId', whiskey.id);
+    
+    // 최근 가격 조회
+    const recentPrice = await loadWhiskeyPrice(whiskey.id);
+    if (recentPrice && selectedWhiskey) {
+      setSelectedWhiskey({ ...whiskey, recentPrice });
+    }
+    
+    setShowWhiskeySelector(false);
+    setSearchTerm('');
+  };
+
+  const filteredWhiskeys = whiskeys.filter(whiskey => 
+    whiskey.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    whiskey.brand.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const calculateFinalPriceKRW = () => {
     // 원래 가격을 KRW로 변환
@@ -270,7 +318,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
             구매 기록 추가
           </h2>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* 위스키 선택 */}
             <div>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
@@ -281,12 +329,12 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                 onClick={() => setShowWhiskeySelector(true)}
                 style={{
                   width: '100%',
-                  padding: '12px',
+                  padding: '10px',
                   border: '1px solid #D1D5DB',
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   backgroundColor: 'white',
                   textAlign: 'left',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -298,6 +346,40 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                 </span>
                 <span>▼</span>
               </button>
+              
+              {/* 선택된 위스키 상세 정보 */}
+              {selectedWhiskey && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '6px',
+                  backgroundColor: '#F9FAFB'
+                }}>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    {selectedWhiskey.image_url && (
+                      <img 
+                        src={selectedWhiskey.image_url} 
+                        alt={selectedWhiskey.name}
+                        style={{ width: '50px', height: '70px', objectFit: 'contain', borderRadius: '4px' }}
+                      />
+                    )}
+                    <div style={{ flex: 1, fontSize: '12px' }}>
+                      <div style={{ fontWeight: '600', marginBottom: '4px' }}>{selectedWhiskey.name}</div>
+                      <div style={{ color: '#6B7280', marginBottom: '2px' }}>{selectedWhiskey.brand}</div>
+                      {selectedWhiskey.region && <div style={{ color: '#6B7280' }}>📍 {selectedWhiskey.region}</div>}
+                      {selectedWhiskey.type && <div style={{ color: '#6B7280' }}>🥃 {selectedWhiskey.type}</div>}
+                      {selectedWhiskey.abv && <div style={{ color: '#6B7280' }}>📊 ABV: {selectedWhiskey.abv}%</div>}
+                      {selectedWhiskey.price_range && <div style={{ color: '#6B7280' }}>💰 {selectedWhiskey.price_range}</div>}
+                      {selectedWhiskey.recentPrice && (
+                        <div style={{ color: '#3B82F6', fontWeight: '600', marginTop: '4px' }}>
+                          💵 최근 가격: ₩{formatPrice(selectedWhiskey.recentPrice)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 구매일 */}
@@ -398,10 +480,10 @@ const MobilePurchaseHistoryForm: React.FC = () => {
               </label>
               
               {/* 기본 할인 */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
+                    <label style={{ display: 'block', marginBottom: '2px', fontSize: '11px' }}>
                       기본 할인 화폐
                     </label>
                     <select
@@ -413,7 +495,9 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                         border: '1px solid #D1D5DB',
                         borderRadius: '6px',
                         fontSize: '13px',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        height: '32px',
+                        lineHeight: '20px'
                       }}
                     >
                       <option value="KRW">원 (₩)</option>
@@ -453,7 +537,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
               </div>
 
               {/* 쿠폰 할인 */}
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                   <div style={{ flex: 1 }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
@@ -468,7 +552,9 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                         border: '1px solid #D1D5DB',
                         borderRadius: '6px',
                         fontSize: '13px',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        height: '32px',
+                        lineHeight: '20px'
                       }}
                     >
                       <option value="KRW">원 (₩)</option>
@@ -508,7 +594,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
               </div>
 
               {/* 멤버십 할인 */}
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                   <div style={{ flex: 1 }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
@@ -523,7 +609,9 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                         border: '1px solid #D1D5DB',
                         borderRadius: '6px',
                         fontSize: '13px',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        height: '32px',
+                        lineHeight: '20px'
                       }}
                     >
                       <option value="KRW">원 (₩)</option>
@@ -578,7 +666,9 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                         border: '1px solid #D1D5DB',
                         borderRadius: '6px',
                         fontSize: '13px',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        height: '32px',
+                        lineHeight: '20px'
                       }}
                     >
                       <option value="KRW">원 (₩)</option>
@@ -732,8 +822,8 @@ const MobilePurchaseHistoryForm: React.FC = () => {
             width: '100%',
             maxWidth: '400px'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '600' }}>위스키 선택</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600' }}>위스키 선택</h3>
               <button
                 onClick={() => setShowWhiskeySelector(false)}
                 style={{
@@ -747,36 +837,51 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                 ✕
               </button>
             </div>
+            
+            {/* 검색창 */}
+            <div style={{ marginBottom: '12px' }}>
+              <Input
+                type="text"
+                placeholder="위스키 검색..."
+                value={searchTerm}
+                onChange={(value) => setSearchTerm(value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  backgroundColor: 'white'
+                }}
+              />
+            </div>
+            
             <div style={{ overflow: 'auto', flex: 1 }}>
-              {whiskeys.map(whiskey => (
+              {filteredWhiskeys.map(whiskey => (
                 <div
                   key={whiskey.id}
-                  onClick={() => {
-                    setSelectedWhiskey(whiskey);
-                    handleInputChange('whiskeyId', whiskey.id);
-                    setShowWhiskeySelector(false);
-                  }}
+                  onClick={() => handleWhiskeySelect(whiskey)}
                   style={{
-                    padding: '12px',
+                    padding: '8px',
                     border: '1px solid #E5E7EB',
                     borderRadius: '8px',
-                    marginBottom: '8px',
+                    marginBottom: '6px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px'
+                    gap: '8px'
                   }}
                 >
-                  <div style={{ width: '40px', height: '60px', backgroundColor: '#F3F4F6', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <div style={{ width: '32px', height: '48px', backgroundColor: '#F3F4F6', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                     {whiskey.image_url ? (
                       <img src={whiskey.image_url} alt={whiskey.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     ) : (
-                      <div style={{ fontSize: '24px' }}>🥃</div>
+                      <div style={{ fontSize: '20px' }}>🥃</div>
                     )}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '500' }}>{whiskey.name}</div>
-                    <div style={{ fontSize: '12px', color: '#6B7280' }}>{whiskey.brand}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{whiskey.name}</div>
+                    <div style={{ fontSize: '11px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{whiskey.brand}</div>
                   </div>
                 </div>
               ))}
