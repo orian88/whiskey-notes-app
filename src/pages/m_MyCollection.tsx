@@ -317,7 +317,7 @@ const MobileMyCollection: React.FC = () => {
         ref={(el) => {
           bindEvents(el);
         }}
-        style={{ backgroundColor: '#ffffff', minHeight: '100vh', paddingTop: '0', position: 'relative', overflowY: 'auto', maxHeight: 'calc(100vh - 136px)' }}>
+        style={{ backgroundColor: '#ffffff', minHeight: '100vh', paddingTop: '0', position: 'relative' }}>
         <PullToRefreshIndicator
           isPulling={isPulling}
           isRefreshing={isRefreshing}

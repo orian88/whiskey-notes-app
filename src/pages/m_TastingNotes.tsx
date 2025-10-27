@@ -273,29 +273,34 @@ const MobileTastingNotes: React.FC = () => {
       searchVisible={showSearch}
       onSearchVisibleChange={setShowSearch}
     >
-      <PullToRefreshIndicator
-        isPulling={isPulling}
-        isRefreshing={isRefreshing}
-        canRefresh={canRefresh}
-        pullDistance={pullDistance}
-        threshold={80}
-        style={refreshIndicatorStyle}
-      />
-      
-      {/* 개수 표시 */}
-      <div style={{ 
-        padding: '12px 16px', 
-        backgroundColor: 'white', 
-        borderBottom: '1px solid #E5E7EB',
-        fontSize: '14px',
-        fontWeight: '600',
-        color: '#1F2937'
-      }}>
-        테이스팅 노트 ({filteredAndSortedTastings.length}개)
-      </div>
+      <div 
+        ref={(el) => {
+          bindEvents(el);
+        }}
+        style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative' }}>
+        <PullToRefreshIndicator
+          isPulling={isPulling}
+          isRefreshing={isRefreshing}
+          canRefresh={canRefresh}
+          pullDistance={pullDistance}
+          threshold={80}
+          style={refreshIndicatorStyle}
+        />
+        
+        {/* 개수 표시 */}
+        <div style={{ 
+          padding: '12px 16px', 
+          backgroundColor: 'white', 
+          borderBottom: '1px solid #E5E7EB',
+          fontSize: '14px',
+          fontWeight: '600',
+          color: '#1F2937'
+        }}>
+          테이스팅 노트 ({filteredAndSortedTastings.length}개)
+        </div>
 
-      {/* 목록 */}
-      {filteredAndSortedTastings.length === 0 ? (
+        {/* 목록 */}
+        {filteredAndSortedTastings.length === 0 ? (
           <div style={{ padding: '40px 16px', textAlign: 'center' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>🥃</div>
             <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
@@ -442,6 +447,7 @@ const MobileTastingNotes: React.FC = () => {
             ))}
           </div>
         )}
+      </div>
     </MobileLayout>
   );
 };

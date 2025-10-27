@@ -169,13 +169,7 @@ const MobilePersonalNotes: React.FC = () => {
       searchVisible={showSearch}
       onSearchVisibleChange={setShowSearch}
     >
-      <div 
-        ref={(el) => {
-          bindEvents(el);
-          containerRef.current = el;
-        }}
-        style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative', overflowY: 'auto', maxHeight: 'calc(100vh - 136px)' }}>
-        {/* 개수 표시 */}
+      <>
         <div style={{ 
           padding: '12px 16px', 
           backgroundColor: 'white', 
@@ -195,6 +189,13 @@ const MobilePersonalNotes: React.FC = () => {
           threshold={80}
           style={refreshIndicatorStyle}
         />
+
+      <div 
+        ref={(el) => {
+          bindEvents(el);
+          containerRef.current = el;
+        }}
+        style={{ backgroundColor: '#ffffff', minHeight: 'calc(100vh - 148px)', position: 'relative', overflowY: 'auto' }}>
 
         {/* 목록 */}
       {notes.length === 0 ? (
@@ -340,6 +341,7 @@ const MobilePersonalNotes: React.FC = () => {
         </div>
       )}
       </div>
+      </>
     </MobileLayout>
   );
 };

@@ -1313,7 +1313,7 @@ const MobileWhiskeyList: React.FC = () => {
   useEffect(() => {
     supabase
       .from('whiskeys')
-      .select('id, name, brand, type, age, abv, region, image_url, price, current_price_usd, exchange_rate')
+      .select('id, name, brand, type, age, abv, region, image_url, price, current_price_usd, exchange_rate, is_favorite')
       .then(({ data }) => {
         setAllWhiskeys(data || []);
         const uniqueBrands = Array.from(new Set(data?.map(w => w.brand).filter(Boolean))) as string[];

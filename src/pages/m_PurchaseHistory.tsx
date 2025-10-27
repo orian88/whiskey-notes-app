@@ -282,9 +282,8 @@ const MobilePurchaseHistory: React.FC = () => {
       <div 
         ref={(el) => {
           bindEvents(el);
-          containerRef.current = el;
         }}
-        style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative', overflowY: 'auto', maxHeight: 'calc(100vh - 136px)' }}>
+        style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative' }}>
         <PullToRefreshIndicator
           isPulling={isPulling}
           isRefreshing={isRefreshing}
