@@ -126,8 +126,7 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
     <div style={{ 
       position: 'relative', 
       minHeight: '100vh',
-      backgroundColor: '#ffffff',
-      paddingBottom: '80px' // 하단 네비게이션을 위한 공간
+      backgroundColor: '#ffffff'
     }}>
       {/* 상단 고정 헤더 */}
       <header 
@@ -298,7 +297,6 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
         style={{ 
           paddingTop: controlledShowSearch && showSearchBar ? '140px' : '56px',
           paddingBottom: '80px',
-          minHeight: 'calc(100vh - 56px - 80px)',
           backgroundColor: '#ffffff',
           transition: 'padding-top 0.3s ease-out'
         }}

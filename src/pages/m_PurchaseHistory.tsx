@@ -316,7 +316,7 @@ const MobilePurchaseHistory: React.FC = () => {
           </Button>
         </div>
       ) : (
-        <div ref={containerRef} style={{ backgroundColor: 'white', padding: '8px', gap: '0px', height: 'calc(100vh - 136px)', overflowY: 'auto' }}>
+        <div ref={containerRef} style={{ backgroundColor: 'white', padding: '8px', gap: '0px', height: 'calc(100vh - 56px)', overflowY: 'auto' }}>
           {displayedPurchases.map((purchase, index) => (
             <div
               key={purchase.id}

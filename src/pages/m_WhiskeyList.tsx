@@ -1088,7 +1088,7 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
 
       {/* 위스키 목록 탭 내용 */}
       {(activeTab === 'list' || activeTab === 'cart') && (
-        <div ref={containerRef} style={{ height: 'calc(100vh - 108px)', overflowY: 'auto' }}>
+        <div ref={containerRef} style={{ height: 'calc(100vh - 136px)', overflowY: 'auto' }}>
       {/* 목록 */}
       {filteredWhiskeys.length === 0 && !loading ? (
         <div style={{ padding: '40px 16px', textAlign: 'center' }}>

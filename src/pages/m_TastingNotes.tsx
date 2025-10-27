@@ -311,14 +311,14 @@ const MobileTastingNotes: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div ref={containerRef} style={{ backgroundColor: 'white', height: 'calc(100vh - 136px)', overflowY: 'auto' }}>
+          <div ref={containerRef} style={{ backgroundColor: 'white', height: 'calc(100vh - 56px)', overflowY: 'auto' }}>
             {displayedTastings.map((tasting, index) => (
               <div
                 key={tasting.id}
                 onClick={() => handleTastingClick(tasting.id)}
                 style={{
                   display: 'flex',
-                  padding: '16px',
+                  padding: '8px',
                   borderBottom: index < filteredAndSortedTastings.length - 1 ? '1px solid #E5E7EB' : 'none',
                   backgroundColor: 'white',
                   cursor: 'pointer'
