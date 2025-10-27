@@ -1768,7 +1768,9 @@ const PurchaseHistory: React.FC = () => {
                         border: '1px solid #D1D5DB',
                         borderRadius: '6px',
                         fontSize: '13px',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        height: '32px',
+                        lineHeight: '20px'
                       }}
                     >
                       <option value="KRW">원 (₩)</option>
@@ -1787,6 +1789,7 @@ const PurchaseHistory: React.FC = () => {
                       placeholder="0"
                       value={formData.basicDiscountAmount.toString()}
                       onChange={(value) => handleInputChange('basicDiscountAmount', parseFloat(value) || 0)}
+                      style={{ height: '32px', lineHeight: '20px' }}
                     />
                   </div>
                 </div>
@@ -1821,7 +1824,9 @@ const PurchaseHistory: React.FC = () => {
                         border: '1px solid #D1D5DB',
                         borderRadius: '6px',
                         fontSize: '13px',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        height: '32px',
+                        lineHeight: '20px'
                       }}
                     >
                       <option value="KRW">원 (₩)</option>
@@ -1840,6 +1845,7 @@ const PurchaseHistory: React.FC = () => {
                       placeholder="0"
                       value={formData.couponDiscountAmount.toString()}
                       onChange={(value) => handleInputChange('couponDiscountAmount', parseFloat(value) || 0)}
+                      style={{ height: '32px', lineHeight: '20px' }}
                     />
                   </div>
                 </div>
@@ -1874,7 +1880,9 @@ const PurchaseHistory: React.FC = () => {
                         border: '1px solid #D1D5DB',
                         borderRadius: '6px',
                         fontSize: '13px',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        height: '32px',
+                        lineHeight: '20px'
                       }}
                     >
                       <option value="KRW">원 (₩)</option>
@@ -1893,6 +1901,7 @@ const PurchaseHistory: React.FC = () => {
                       placeholder="0"
                       value={formData.membershipDiscountAmount.toString()}
                       onChange={(value) => handleInputChange('membershipDiscountAmount', parseFloat(value) || 0)}
+                      style={{ height: '32px', lineHeight: '20px' }}
                     />
                   </div>
                 </div>
@@ -1927,7 +1936,9 @@ const PurchaseHistory: React.FC = () => {
                         border: '1px solid #D1D5DB',
                         borderRadius: '6px',
                         fontSize: '13px',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        height: '32px',
+                        lineHeight: '20px'
                       }}
                     >
                       <option value="KRW">원 (₩)</option>
@@ -1946,6 +1957,7 @@ const PurchaseHistory: React.FC = () => {
                       placeholder="0"
                       value={formData.eventDiscountAmount.toString()}
                       onChange={(value) => handleInputChange('eventDiscountAmount', parseFloat(value) || 0)}
+                      style={{ height: '32px', lineHeight: '20px' }}
                     />
                   </div>
                 </div>
