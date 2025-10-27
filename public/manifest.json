@@ -1,0 +1,110 @@
+{
+  "id": "/",
+  "name": "위스키 노트 앱",
+  "short_name": "WhiskeyNotes",
+  "description": "개인용 위스키 테이스팅 노트 관리 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#8B4513",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "ko",
+  "categories": ["food", "lifestyle", "utilities"],
+  "icons": [
+    {
+      "src": "/img/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/img/screenshots/desktop-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "위스키 노트 앱 데스크톱 화면"
+    },
+    {
+      "src": "/img/screenshots/mobile-narrow.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "위스키 노트 앱 모바일 화면"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "새 테이스팅 노트",
+      "short_name": "테이스팅",
+      "description": "새로운 테이스팅 노트 작성",
+      "url": "/tasting-notes/new",
+      "icons": [
+        {
+          "src": "/img/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "위스키 목록",
+      "short_name": "위스키",
+      "description": "위스키 목록 보기",
+      "url": "/whiskeys",
+      "icons": [
+        {
+          "src": "/img/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "내 컬렉션",
+      "short_name": "컬렉션",
+      "description": "내 위스키 컬렉션 보기",
+      "url": "/my-collection",
+      "icons": [
+        {
+          "src": "/img/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
