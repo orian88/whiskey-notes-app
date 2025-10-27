@@ -23,6 +23,11 @@ const MyCollection: React.FC = () => {
   
   // 그리드 레이아웃을 위한 ref
   const gridContainerRef = useRef<HTMLDivElement>(null);
+
+  // 가격 포맷 함수
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('ko-KR').format(price);
+  };
   
   // 그리드 레이아웃 훅 사용
   useGridLayout(gridContainerRef, collectionItems.length);
@@ -438,10 +443,10 @@ const MyCollection: React.FC = () => {
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
-                  gap: '5px',
+                  gap: '16px',
                   width: '100%',
                   justifyContent: 'flex-start',
-                  padding: '0'
+                  padding: '16px'
                 }}
               >
                 {collectionItems.map((item) => (
@@ -1712,6 +1717,90 @@ const MyCollection: React.FC = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* 할인 내역 */}
+                    {(() => {
+                      const purchase = selectedItem.purchase;
+                      if (!purchase) return null;
+
+                      const basicDiscount = purchase.basic_discount_amount || 0;
+                      const couponDiscount = purchase.coupon_discount_amount || 0;
+                      const membershipDiscount = purchase.membership_discount_amount || 0;
+                      const eventDiscount = purchase.event_discount_amount || 0;
+
+                      const basicDiscountKRW = purchase.basic_discount_currency !== 'KRW' && purchase.basic_discount_exchange_rate 
+                        ? basicDiscount * purchase.basic_discount_exchange_rate 
+                        : basicDiscount;
+                      const couponDiscountKRW = purchase.coupon_discount_currency !== 'KRW' && purchase.coupon_discount_exchange_rate 
+                        ? couponDiscount * purchase.coupon_discount_exchange_rate 
+                        : couponDiscount;
+                      const membershipDiscountKRW = purchase.membership_discount_currency !== 'KRW' && purchase.membership_discount_exchange_rate 
+                        ? membershipDiscount * purchase.membership_discount_exchange_rate 
+                        : membershipDiscount;
+                      const eventDiscountKRW = purchase.event_discount_currency !== 'KRW' && purchase.event_discount_exchange_rate 
+                        ? eventDiscount * purchase.event_discount_exchange_rate 
+                        : eventDiscount;
+
+                      const totalDiscountKRW = basicDiscountKRW + couponDiscountKRW + membershipDiscountKRW + eventDiscountKRW;
+
+                      if (totalDiscountKRW <= 0) return null;
+
+                      return (
+                        <>
+                          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '12px' }}>
+                              💰 할인 내역
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {basicDiscount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '12px', color: '#6B7280' }}>기본 할인</span>
+                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#059669' }}>
+                                    -₩{formatPrice(basicDiscountKRW)}
+                                  </span>
+                                </div>
+                              )}
+                              {couponDiscount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '12px', color: '#6B7280' }}>쿠폰 할인</span>
+                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#059669' }}>
+                                    -₩{formatPrice(couponDiscountKRW)}
+                                  </span>
+                                </div>
+                              )}
+                              {membershipDiscount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '12px', color: '#6B7280' }}>멤버십 할인</span>
+                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#059669' }}>
+                                    -₩{formatPrice(membershipDiscountKRW)}
+                                  </span>
+                                </div>
+                              )}
+                              {eventDiscount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '12px', color: '#6B7280' }}>이벤트 할인</span>
+                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#059669' }}>
+                                    -₩{formatPrice(eventDiscountKRW)}
+                                  </span>
+                                </div>
+                              )}
+                              <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                paddingTop: '8px',
+                                borderTop: '1px solid #E5E7EB',
+                                marginTop: '4px'
+                              }}>
+                                <span style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>총 할인</span>
+                                <span style={{ fontSize: '14px', fontWeight: '700', color: '#DC2626' }}>
+                                  -₩{formatPrice(totalDiscountKRW)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

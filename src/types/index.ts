@@ -29,6 +29,7 @@ export interface IWhiskey {
   review_count?: number; // 리뷰 개수 추가
   is_crawled?: boolean;
   crawled_at?: string;
+  is_favorite?: boolean; // 즐겨찾기 (버킷 리스트)
   created_at: string;
   updated_at: string;
 }
@@ -266,7 +267,7 @@ export interface IPersonalNoteFormData {
   title: string;
   content?: string;
   category?: string;
-  tags?: string[];
+  tags: string[];
 }
 
 // API 응답 타입

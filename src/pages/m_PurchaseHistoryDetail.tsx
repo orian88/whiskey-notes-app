@@ -157,7 +157,7 @@ const MobilePurchaseHistoryDetail: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '16px', paddingBottom: '80px', backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
+    <div style={{ padding: '16px', paddingBottom: '20px', backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
       {/* 상단 고정 닫기 버튼 */}
       <button
         onClick={() => navigate('/mobile/purchase')}

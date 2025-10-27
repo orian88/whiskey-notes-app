@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -43,7 +43,7 @@ interface MobileWhiskeyListContentProps {
   filterRegion: string;
   minPrice: number;
   maxPrice: number;
-  activeTab: 'list' | 'price' | 'summary' | 'settings';
+  activeTab: 'list' | 'cart' | 'price' | 'summary' | 'settings';
   whiskeys: IWhiskey[];
 }
 
@@ -216,33 +216,7 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
     return '#EF4444'; // 50만원 초과 - 빨간색 (초고가)
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'list') {
-      loadData(true);
-    } else if (activeTab === 'price') {
-      loadPriceWhiskeys();
-    }
-  }, [activeTab]);
-
-  // 무한 스크롤
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!containerRef.current || loading || !hasMore) return;
-      
-      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-      if (scrollTop + clientHeight >= scrollHeight - 100) {
-        loadData(false);
-      }
-    };
-
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [loading, hasMore]);
-
-  const loadData = async (reset: boolean = false) => {
+  const loadData = useCallback(async (reset: boolean = false) => {
     try {
       if (reset) {
         setLoading(true);
@@ -250,10 +224,17 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
         setHasMore(true);
       }
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('whiskeys')
-        .select('id, name, brand, type, age, abv, region, image_url, price, current_price_usd, exchange_rate')
-        .order('name', { ascending: true })
+        .select('id, name, brand, type, age, abv, region, image_url, price, current_price_usd, exchange_rate, is_favorite')
+        .order('name', { ascending: true });
+      
+      // 카트 탭일 때 즐겨찾기된 위스키만 조회
+      if (activeTab === 'cart') {
+        query = query.eq('is_favorite', true);
+      }
+      
+      const { data, error } = await query
         .range((pageRef.current - 1) * pageSize, pageRef.current * pageSize - 1);
 
       if (error) throw error;
@@ -274,15 +255,43 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   const handleRefresh = useCallback(async () => {
-    if (activeTab === 'list') {
+    if (activeTab === 'list' || activeTab === 'cart') {
       await loadData(true);
     } else {
       await loadPriceWhiskeys();
     }
-  }, [activeTab]);
+  }, [activeTab, loadData]);
+
+  useEffect(() => {
+    if (activeTab === 'list') {
+      loadData(true);
+    } else if (activeTab === 'cart') {
+      loadData(true);
+    } else if (activeTab === 'price') {
+      loadPriceWhiskeys();
+    }
+  }, [activeTab, loadData]);
+
+  // 무한 스크롤
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!containerRef.current || loading || !hasMore) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        loadData(false);
+      }
+    };
+
+    const container = containerRef.current;
+    if (container && (activeTab === 'list' || activeTab === 'cart')) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [loading, hasMore, loadData, activeTab]);
 
   // 검색어에 따른 표시할 위스키 업데이트
   const updateDisplayedPriceWhiskeys = useCallback((whiskeys: IWhiskeyWithPrice[], searchTerm: string) => {
@@ -597,10 +606,20 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
   });
 
   const filteredWhiskeys = whiskeys.filter(whiskey => {
-    // 검색어 필터
-    if (searchTerm && !whiskey.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !whiskey.brand?.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false;
+    // 검색어 필터 (name, brand, type, region 모두 검색)
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const name = whiskey.name?.toLowerCase() || '';
+      const brand = whiskey.brand?.toLowerCase() || '';
+      const type = whiskey.type?.toLowerCase() || '';
+      const region = whiskey.region?.toLowerCase() || '';
+      
+      if (!name.includes(searchLower) && 
+          !brand.includes(searchLower) && 
+          !type.includes(searchLower) && 
+          !region.includes(searchLower)) {
+        return false;
+      }
     }
     // 브랜드 필터
     if (filterBrand && whiskey.brand !== filterBrand) {
@@ -632,12 +651,7 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
   }
 
   return (
-    <div 
-      ref={(el) => {
-        bindEvents(el);
-        containerRef.current = el;
-      }}
-      style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
+    <>
       <PullToRefreshIndicator
         isPulling={isPulling}
         isRefreshing={isRefreshing}
@@ -1073,8 +1087,8 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
       )}
 
       {/* 위스키 목록 탭 내용 */}
-      {activeTab === 'list' && (
-        <div style={{ height: '100%', overflowY: 'auto' }}>
+      {(activeTab === 'list' || activeTab === 'cart') && (
+        <div ref={containerRef} style={{ height: 'calc(100vh - 190px)', overflowY: 'auto' }}>
       {/* 목록 */}
       {filteredWhiskeys.length === 0 && !loading ? (
         <div style={{ padding: '40px 16px', textAlign: 'center' }}>
@@ -1088,7 +1102,9 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
           {filteredWhiskeys.map((whiskey, index) => (
             <div
               key={whiskey.id}
-              onClick={() => navigate(`/mobile/whiskey/${whiskey.id}`)}
+              onClick={() => navigate(`/mobile/whiskey/${whiskey.id}`, { 
+                state: { activeTab: activeTab } 
+              })}
               style={{
                 display: 'flex',
                 padding: '12px',
@@ -1264,12 +1280,15 @@ const MobileWhiskeyListContent: React.FC<MobileWhiskeyListContentProps & {
       )}
         </div>
       )}
-    </div>
+    </>
   );
 };
 
 const MobileWhiskeyList: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'list' | 'price' | 'summary' | 'settings'>('list');
+  const location = useLocation();
+  // location.state에서 activeTab 정보를 읽어서 초기값 설정
+  const initialTab = (location.state as any)?.activeTab || 'list';
+  const [activeTab, setActiveTab] = useState<'list' | 'cart' | 'price' | 'summary' | 'settings'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBrand, setFilterBrand] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -1281,7 +1300,7 @@ const MobileWhiskeyList: React.FC = () => {
   const [priceSearchTerm, setPriceSearchTerm] = useState('');
   
   // 탭 변경 시 검색 창 닫기
-  const handleTabChange = (tab: 'list' | 'price' | 'summary' | 'settings') => {
+  const handleTabChange = (tab: 'list' | 'cart' | 'price' | 'summary' | 'settings') => {
     setActiveTab(tab);
     setShowSearch(false); // 검색 창 닫기
   };
@@ -1417,7 +1436,24 @@ const MobileWhiskeyList: React.FC = () => {
             fontSize: '12px'
           }}
         >
-          목록
+          목록 ({allWhiskeys.length}개)
+        </button>
+        <button
+          onClick={() => handleTabChange('cart')}
+          style={{
+            flex: 1,
+            padding: '10px 8px',
+            border: 'none',
+            background: 'transparent',
+            borderBottom: activeTab === 'cart' ? '3px solid #8B4513' : '3px solid transparent',
+            color: activeTab === 'cart' ? '#8B4513' : '#6B7280',
+            fontWeight: activeTab === 'cart' ? '600' : '400',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            fontSize: '12px'
+          }}
+        >
+          카트 ({allWhiskeys.filter((w: any) => w.is_favorite).length}개)
         </button>
         <button
           onClick={() => handleTabChange('price')}
@@ -1484,7 +1520,7 @@ const MobileWhiskeyList: React.FC = () => {
         filterOptions={activeTab === 'price' ? undefined : filterOptions}
         searchVisible={showSearch}
         onSearchVisibleChange={setShowSearch}
-        showSearchBar={activeTab === 'list' || activeTab === 'price'}
+        showSearchBar={activeTab === 'list' || activeTab === 'cart' || activeTab === 'price'}
         onResetFilters={() => {
           if (activeTab === 'price') {
             setPriceSearchTerm('');

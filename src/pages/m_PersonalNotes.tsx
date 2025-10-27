@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import MobileLayout from '../components/MobileLayout';
 import Button from '../components/Button';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
@@ -8,21 +10,38 @@ interface IPersonalNote {
   id: string;
   title: string;
   content: string;
+  category?: string;
+  tags?: string[];
   created_at: string;
   updated_at: string;
 }
 
 const MobilePersonalNotes: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [notes, setNotes] = useState<IPersonalNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef(1);
   const pageSize = 20;
+  
+  // 검색 및 필터 상태
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [sortBy, setSortBy] = useState<'created_at' | 'title'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     loadData(true);
   }, []);
+
+  // location이 변경될 때마다 데이터 새로고침
+  useEffect(() => {
+    if (location.pathname === '/mobile/notes') {
+      loadData(true);
+    }
+  }, [location.pathname]);
 
   // 무한 스크롤
   useEffect(() => {
@@ -50,19 +69,43 @@ const MobilePersonalNotes: React.FC = () => {
         setHasMore(true);
       }
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('personal_notes')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .select('*');
+      
+      // 검색어가 있으면 모든 데이터를 가져와서 클라이언트에서 필터링
+      // (Supabase의 태그 배열 검색이 복잡하므로)
+      
+      // 정렬 적용 (note_date가 있으면 note_date로, 없으면 created_at으로)
+      const sortColumn = sortBy === 'created_at' ? 'created_at' : 
+                         sortBy === 'title' ? 'title' : 'note_date';
+      
+      query = query.order(sortColumn, { ascending: sortOrder === 'asc' })
         .range((pageRef.current - 1) * pageSize, pageRef.current * pageSize - 1);
+      
+      const { data, error } = await query;
 
       if (error) throw error;
       
-      const formatted = (data || []).map((item: any) => ({
+      let formatted = (data || []).map((item: any) => ({
         ...item,
         created_at: new Date(item.created_at).toLocaleDateString('ko-KR'),
         updated_at: new Date(item.updated_at).toLocaleDateString('ko-KR')
       }));
+      
+      // 클라이언트에서 태그 배열 검색
+      if (searchTerm) {
+        formatted = formatted.filter(note => {
+          const matchesTitleOrContent = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                       note.content?.toLowerCase().includes(searchTerm.toLowerCase());
+          
+          // 태그 배열에서 검색
+          const matchesTags = note.tags && Array.isArray(note.tags) && 
+                              note.tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+          
+          return matchesTitleOrContent || matchesTags;
+        });
+      }
       
       if (reset) {
         setNotes(formatted);
@@ -81,6 +124,11 @@ const MobilePersonalNotes: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // 검색어 변경 시 데이터 다시 로드
+  useEffect(() => {
+    loadData(true);
+  }, [searchTerm, sortBy, sortOrder]);
 
   const handleRefresh = useCallback(async () => {
     await loadData(true);
@@ -101,36 +149,61 @@ const MobilePersonalNotes: React.FC = () => {
 
   if (loading && notes.length === 0) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div>로딩 중...</div>
-      </div>
+      <MobileLayout 
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchVisible={showSearch}
+        onSearchVisibleChange={setShowSearch}
+      >
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <div>로딩 중...</div>
+        </div>
+      </MobileLayout>
     );
   }
 
   return (
-    <div 
-      ref={(el) => {
-        bindEvents(el);
-        containerRef.current = el;
-      }}
-      style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative', overflowY: 'auto', maxHeight: 'calc(100vh - 136px)' }}>
-      <PullToRefreshIndicator
-        isPulling={isPulling}
-        isRefreshing={isRefreshing}
-        canRefresh={canRefresh}
-        pullDistance={pullDistance}
-        threshold={80}
-        style={refreshIndicatorStyle}
-      />
+    <MobileLayout 
+      searchValue={searchTerm}
+      onSearchChange={setSearchTerm}
+      searchVisible={showSearch}
+      onSearchVisibleChange={setShowSearch}
+    >
+      <div 
+        ref={(el) => {
+          bindEvents(el);
+          containerRef.current = el;
+        }}
+        style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative', overflowY: 'auto', maxHeight: 'calc(100vh - 136px)' }}>
+        {/* 개수 표시 */}
+        <div style={{ 
+          padding: '12px 16px', 
+          backgroundColor: 'white', 
+          borderBottom: '1px solid #E5E7EB',
+          fontSize: '14px',
+          fontWeight: '600',
+          color: '#1F2937'
+        }}>
+          내 노트 ({notes.length}개)
+        </div>
 
-      {/* 목록 */}
+        <PullToRefreshIndicator
+          isPulling={isPulling}
+          isRefreshing={isRefreshing}
+          canRefresh={canRefresh}
+          pullDistance={pullDistance}
+          threshold={80}
+          style={refreshIndicatorStyle}
+        />
+
+        {/* 목록 */}
       {notes.length === 0 ? (
         <div style={{ padding: '40px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>📖</div>
           <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
             개인 노트가 없습니다
           </div>
-          <Button variant="primary" onClick={() => {/* 추가 */}}>
+          <Button variant="primary" onClick={() => navigate('/mobile/notes/form')}>
             + 노트 추가
           </Button>
         </div>
@@ -183,6 +256,63 @@ const MobilePersonalNotes: React.FC = () => {
                 }}>
                   {stripHtml(note.content, 60)}
                 </div>
+                
+                {/* 카테고리 표시 */}
+                {note.category && (
+                  <div style={{ 
+                    display: 'inline-block',
+                    fontSize: '10px',
+                    padding: '2px 6px',
+                    backgroundColor: '#FEF3C7',
+                    color: '#92400E',
+                    borderRadius: '4px',
+                    fontWeight: '600',
+                    marginBottom: '4px'
+                  }}>
+                    🏷️ {note.category}
+                  </div>
+                )}
+                
+                {/* 해시태그 표시 */}
+                {note.tags && note.tags.length > 0 && (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: '4px',
+                    marginBottom: '4px'
+                  }}>
+                    {note.tags.slice(0, 3).map((tag, tagIndex) => (
+                      <span
+                        key={tagIndex}
+                        onClick={() => {
+                          setSearchTerm(tag);
+                          setShowSearch(true);
+                        }}
+                        style={{
+                          fontSize: '10px',
+                          padding: '2px 6px',
+                          backgroundColor: '#DBEAFE',
+                          color: '#1E40AF',
+                          borderRadius: '4px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                    {note.tags.length > 3 && (
+                      <span style={{ 
+                        fontSize: '10px', 
+                        color: '#9CA3AF',
+                        fontWeight: '600'
+                      }}>
+                        +{note.tags.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
+                
                 <div style={{ 
                   display: 'flex', 
                   justifyContent: 'space-between',
@@ -209,7 +339,8 @@ const MobilePersonalNotes: React.FC = () => {
           모든 노트를 불러왔습니다
         </div>
       )}
-    </div>
+      </div>
+    </MobileLayout>
   );
 };
 

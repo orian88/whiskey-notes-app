@@ -5,6 +5,7 @@ interface IInputProps {
   placeholder?: string;
   value?: string;
   onChange?: (value: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   className?: string;
   style?: React.CSSProperties;
   required?: boolean;
@@ -19,6 +20,7 @@ const Input: React.FC<IInputProps> = ({
   placeholder,
   value,
   onChange,
+  onKeyDown,
   className = '',
   style,
   required = false,
@@ -73,6 +75,7 @@ const Input: React.FC<IInputProps> = ({
           placeholder={placeholder}
           defaultValue={value}
           onInput={handleInput}
+          onKeyDown={onKeyDown}
           required={required}
           disabled={disabled}
           style={{
@@ -143,6 +146,7 @@ const Input: React.FC<IInputProps> = ({
         placeholder={placeholder}
         defaultValue={value}
         onInput={handleInput}
+        onKeyDown={onKeyDown}
         required={required}
         disabled={disabled}
         style={{

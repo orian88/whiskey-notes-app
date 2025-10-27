@@ -36,6 +36,7 @@ const MobilePurchaseHistory = lazy(() => import('./pages/m_PurchaseHistory'));
 const MobilePurchaseHistoryDetail = lazy(() => import('./pages/m_PurchaseHistoryDetail'));
 const MobilePurchaseHistoryForm = lazy(() => import('./pages/m_PurchaseHistoryForm'));
 const MobilePersonalNotes = lazy(() => import('./pages/m_PersonalNotes'));
+const MobilePersonalNotesForm = lazy(() => import('./pages/m_PersonalNotesForm'));
 const MobileMyCollection = lazy(() => import('./pages/m_MyCollection'));
 const MobileMyCollectionDetail = lazy(() => import('./pages/m_MyCollectionDetail'));
 
@@ -317,7 +318,15 @@ function App() {
             path="/mobile/notes"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobilePersonalNotes /></MobileLayout>
+                <MobilePersonalNotes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mobile/notes/form"
+            element={
+              <ProtectedRoute>
+                <MobileLayout><MobilePersonalNotesForm /></MobileLayout>
               </ProtectedRoute>
             }
           />
@@ -333,7 +342,7 @@ function App() {
             path="/mobile/collection/:id"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileMyCollectionDetail /></MobileLayout>
+                <MobileLayout showSearchBar={false}><MobileMyCollectionDetail /></MobileLayout>
               </ProtectedRoute>
             }
           />

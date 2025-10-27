@@ -136,7 +136,7 @@ export const applyGridLayout = (gridContainerRef: React.RefObject<HTMLDivElement
   });
   
   // Flexbox 방식으로 완전히 전환 - CSS Grid 속성 제거
-  // collection-card가 있는 경우 gap을 건드리지 않음 (MyCollection에서 5px로 설정되어 있음)
+  // collection-card가 있는 경우 gap을 건드리지 않음 (MyCollection에서 16px로 설정되어 있음)
   const hasCollectionCards = Array.from(gridContainer.children).some(card => 
     card.classList.contains('collection-card')
   );
@@ -144,12 +144,10 @@ export const applyGridLayout = (gridContainerRef: React.RefObject<HTMLDivElement
   gridContainer.style.setProperty('display', 'flex', 'important');
   gridContainer.style.setProperty('flex-wrap', 'wrap', 'important');
   
-  // collection-card가 있으면 gap을 설정하지 않음
-  if (!hasCollectionCards) {
-    gridContainer.style.setProperty('gap', '16px', 'important');
-    gridContainer.style.setProperty('row-gap', '16px', 'important');
-    gridContainer.style.setProperty('column-gap', '16px', 'important');
-  }
+  // collection-card에도 gap 적용 (16px로 설정)
+  gridContainer.style.setProperty('gap', '16px', 'important');
+  gridContainer.style.setProperty('row-gap', '16px', 'important');
+  gridContainer.style.setProperty('column-gap', '16px', 'important');
   
   gridContainer.style.setProperty('justify-content', 'flex-start', 'important');
   gridContainer.style.setProperty('align-items', 'flex-start', 'important');
@@ -162,15 +160,13 @@ export const applyGridLayout = (gridContainerRef: React.RefObject<HTMLDivElement
   gridContainer.style.removeProperty('grid-row-gap');
   
   // 추가적인 강제 적용
-  // collection-card가 있으면 gap을 설정하지 않음
+  // collection-card에도 gap 적용 (16px로 설정)
   gridContainer.style.display = 'flex';
   gridContainer.style.flexWrap = 'wrap';
   
-  if (!hasCollectionCards) {
-    gridContainer.style.gap = '16px';
-    gridContainer.style.rowGap = '16px';
-    gridContainer.style.columnGap = '16px';
-  }
+  gridContainer.style.gap = '16px';
+  gridContainer.style.rowGap = '16px';
+  gridContainer.style.columnGap = '16px';
   
   gridContainer.style.justifyContent = 'flex-start';
   gridContainer.style.alignItems = 'flex-start';
@@ -212,8 +208,11 @@ export const applyGridLayout = (gridContainerRef: React.RefObject<HTMLDivElement
         card.style.setProperty('min-width', '280px', 'important');
       }
       
-      // 여백 강화 적용 - collection-card는 gap 방식 사용하므로 margin 적용하지 않음
-      if (!card.classList.contains('collection-card')) {
+      // 여백 강화 적용 - 모든 카드에서 margin 제거 (gap 사용)
+      // collection-card는 gap 방식 사용하므로 margin 적용하지 않음
+      if (!card.classList.contains('collection-card') && !card.classList.contains('whiskey-card') && 
+          !card.classList.contains('card') && !card.classList.contains('purchase-card') && 
+          !card.classList.contains('tasting-note-card')) {
         card.style.setProperty('margin', '8px', 'important');
         card.style.setProperty('margin-top', '8px', 'important');
         card.style.setProperty('margin-right', '8px', 'important');
@@ -246,8 +245,11 @@ export const applyGridLayout = (gridContainerRef: React.RefObject<HTMLDivElement
         }
       }
       
-      // 여백 직접 적용 - collection-card는 gap 방식 사용하므로 margin 적용하지 않음
-      if (!card.classList.contains('collection-card')) {
+      // 여백 직접 적용 - 모든 카드에서 margin 제거 (gap 사용)
+      // collection-card는 gap 방식 사용하므로 margin 적용하지 않음
+      if (!card.classList.contains('collection-card') && !card.classList.contains('whiskey-card') && 
+          !card.classList.contains('card') && !card.classList.contains('purchase-card') && 
+          !card.classList.contains('tasting-note-card')) {
         card.style.margin = '8px';
         card.style.marginTop = '8px';
         card.style.marginRight = '8px';

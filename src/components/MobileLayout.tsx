@@ -186,7 +186,7 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
                   if (activeTab === 'whiskey') navigate('/mobile/whiskey/new');
                   else if (activeTab === 'tasting') navigate('/mobile/tasting/new');
                   else if (activeTab === 'purchase') navigate('/mobile/purchase/form');
-                  else if (activeTab === 'notes') navigate('/mobile/note/new');
+                  else if (activeTab === 'notes') navigate('/mobile/notes/form');
                 }}
                 style={{
                   padding: '0',
@@ -204,7 +204,7 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
                 {activeTab === 'notes' && '+노트 추가'}
               </button>
             )}
-            {!isFormMode && activeTab !== 'home' && (
+            {!isFormMode && activeTab !== 'home' && showSearchBar && (
               <button
                 onClick={() => handleSetShowSearch(!controlledShowSearch)}
                 style={{

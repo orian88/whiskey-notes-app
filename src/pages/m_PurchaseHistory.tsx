@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import MobileLayout from '../components/MobileLayout';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 
 interface IPurchase {
   id: string;
@@ -27,6 +29,7 @@ interface IPurchase {
 const MobilePurchaseHistory: React.FC = () => {
   const navigate = useNavigate();
   const [purchases, setPurchases] = useState<IPurchase[]>([]);
+  const [displayedPurchases, setDisplayedPurchases] = useState<IPurchase[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
   const [filterStore, setFilterStore] = useState('');
@@ -34,10 +37,23 @@ const MobilePurchaseHistory: React.FC = () => {
   const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
   const [showSearch, setShowSearch] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const [hasMore, setHasMore] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleRefresh = useCallback(async () => {
+    await loadData();
+  }, []);
+
+  const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 80
+  });
 
   const loadData = async () => {
     try {
@@ -71,6 +87,8 @@ const MobilePurchaseHistory: React.FC = () => {
       }));
 
       setPurchases(formatted);
+      setDisplayedPurchases(formatted.slice(0, pageSize));
+      setHasMore(formatted.length > pageSize);
     } catch (error) {
       console.error('데이터 로드 오류:', error);
     } finally {
@@ -128,6 +146,31 @@ const MobilePurchaseHistory: React.FC = () => {
       }
       return 0;
     });
+
+  // 필터링 및 정렬된 항목에 따라 표시할 항목 업데이트
+  useEffect(() => {
+    const displayed = filteredAndSortedPurchases.slice(0, page * pageSize);
+    setDisplayedPurchases(displayed);
+    setHasMore(displayed.length < filteredAndSortedPurchases.length);
+  }, [filteredAndSortedPurchases, page, pageSize]);
+
+  // 무한 스크롤
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!containerRef.current || loading || !hasMore) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        setPage(prev => prev + 1);
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [loading, hasMore]);
 
   const locations = Array.from(new Set(purchases.map(p => p.purchase_location).filter(Boolean)));
   const stores = Array.from(new Set(purchases.map(p => p.store_name).filter(Boolean)));
@@ -236,9 +279,34 @@ const MobilePurchaseHistory: React.FC = () => {
       searchVisible={showSearch}
       onSearchVisibleChange={setShowSearch}
     >
-      <div style={{ backgroundColor: '#ffffff', minHeight: '100vh' }}>
+      <div 
+        ref={(el) => {
+          bindEvents(el);
+          containerRef.current = el;
+        }}
+        style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative', overflowY: 'auto', maxHeight: 'calc(100vh - 136px)' }}>
+        <PullToRefreshIndicator
+          isPulling={isPulling}
+          isRefreshing={isRefreshing}
+          canRefresh={canRefresh}
+          pullDistance={pullDistance}
+          threshold={80}
+          style={refreshIndicatorStyle}
+        />
+      {/* 개수 표시 */}
+      <div style={{ 
+        padding: '12px 16px', 
+        backgroundColor: 'white', 
+        borderBottom: '1px solid #E5E7EB',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#1F2937'
+      }}>
+        구매 기록 ({purchases.length}개)
+      </div>
+
       {/* 목록 */}
-      {filteredAndSortedPurchases.length === 0 ? (
+      {purchases.length === 0 ? (
         <div style={{ padding: '40px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>🛒</div>
           <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
@@ -249,8 +317,8 @@ const MobilePurchaseHistory: React.FC = () => {
           </Button>
         </div>
       ) : (
-        <div style={{ backgroundColor: 'white', padding: '8px', gap: '0px' }}>
-          {filteredAndSortedPurchases.map((purchase, index) => (
+        <div ref={containerRef} style={{ backgroundColor: 'white', padding: '8px', gap: '0px', height: 'calc(100vh - 180px)', overflowY: 'auto' }}>
+          {displayedPurchases.map((purchase, index) => (
             <div
               key={purchase.id}
               onClick={() => navigate(`/mobile/purchase/${purchase.id}`)}

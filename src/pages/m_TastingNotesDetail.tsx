@@ -345,7 +345,7 @@ const MobileTastingNotesDetail: React.FC = () => {
           color: 'white',
           padding: '12px 24px',
           borderRadius: '24px',
-          fontSize: '14px',
+          fontSize: '12px',
           fontWeight: '500',
           cursor: 'pointer',
           zIndex: 100,
@@ -356,7 +356,7 @@ const MobileTastingNotesDetail: React.FC = () => {
         ← 목록으로
       </button>
 
-      <div style={{ padding: '16px', paddingBottom: '80px' }}>
+      <div style={{ padding: '16px', paddingBottom: '20px' }}>
         {/* 위스키 정보 */}
         {tastingNote.whiskey && (
           <div style={{
@@ -845,7 +845,7 @@ const MobileTastingNotesDetail: React.FC = () => {
           <Button
             variant="secondary"
             onClick={() => navigate('/mobile/tasting-notes')}
-            style={{ flex: 1 }}
+            style={{ flex: 1, fontSize: '12px' }}
           >
             목록으로
           </Button>
@@ -853,7 +853,7 @@ const MobileTastingNotesDetail: React.FC = () => {
             variant="danger"
             onClick={handleDelete}
             disabled={deleting}
-            style={{ flex: 1 }}
+            style={{ flex: 1, fontSize: '12px' }}
           >
             {deleting ? '삭제 중...' : '삭제'}
           </Button>

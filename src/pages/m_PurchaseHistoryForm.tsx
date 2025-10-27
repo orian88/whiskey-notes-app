@@ -56,6 +56,80 @@ const MobilePurchaseHistoryForm: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingWhiskeys, setLoadingWhiskeys] = useState(true);
 
+  // 타입별 색상 함수
+  const getTypeColor = (type?: string) => {
+    const normalizedType = (type || '').toLowerCase().trim();
+    switch (normalizedType) {
+      case 'single malt':
+      case '싱글 몰트':
+        return { bg: '#FFF7ED', text: '#9A3412', border: '#FED7AA' };
+      case 'blended':
+      case '블렌디드':
+        return { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' };
+      case 'single grain':
+      case '싱글 그레인':
+        return { bg: '#ECFDF5', text: '#047857', border: '#A7F3D0' };
+      case 'bourbon':
+      case '버번':
+        return { bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA' };
+      case 'rye':
+      case '라이':
+        return { bg: '#F0FDF4', text: '#15803D', border: '#BBF7D0' };
+      default:
+        return { bg: '#F3F4F6', text: '#374151', border: '#E5E7EB' };
+    }
+  };
+
+  // 지역별 색상 함수
+  const getRegionColor = (region?: string) => {
+    const normalizedRegion = (region || '').toLowerCase().trim();
+    switch (normalizedRegion) {
+      case 'highland':
+      case '하이랜드':
+        return { bg: '#EEF2FF', text: '#4338CA', border: '#E0E7FF' };
+      case 'speyside':
+      case '스페이사이드':
+        return { bg: '#ECFEFF', text: '#0891B2', border: '#CFFAFE' };
+      case 'islay':
+      case '아일라':
+        return { bg: '#F5F3FF', text: '#6D28D9', border: '#DDD6FE' };
+      case 'lowland':
+      case '로우랜드':
+        return { bg: '#F0FDFA', text: '#0F766E', border: '#CCFBF1' };
+      case 'campbeltown':
+      case '캠벨타운':
+        return { bg: '#FFF1F2', text: '#BE123C', border: '#FFE4E6' };
+      case 'japan':
+      case '일본':
+        return { bg: '#FFF7F7', text: '#B91C1C', border: '#FECACA' };
+      case 'ireland':
+      case '아일랜드':
+        return { bg: '#ECFDF5', text: '#047857', border: '#A7F3D0' };
+      case 'usa':
+      case '미국':
+        return { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' };
+      case 'canada':
+      case '캐나다':
+        return { bg: '#E0F2FE', text: '#0369A1', border: '#BAE6FD' };
+      default:
+        return { bg: '#F3F4F6', text: '#374151', border: '#E5E7EB' };
+    }
+  };
+
+  // 도수별 색상 함수
+  const getABVColor = (abv?: number) => {
+    if (!abv) return { bg: '#F3F4F6', text: '#6B7280', border: '#E5E7EB' };
+    if (abv >= 60) return { bg: '#FEE2E2', text: '#991B1B', border: '#FECACA' };
+    if (abv >= 50) return { bg: '#FED7AA', text: '#9A3412', border: '#FDBA74' };
+    if (abv >= 40) return { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A' };
+    return { bg: '#ECFDF5', text: '#047857', border: '#A7F3D0' };
+  };
+
+  // 년수별 색상 함수
+  const getAgeColor = () => {
+    return { bg: '#F3E8FF', text: '#7C3AED', border: '#DDD6FE' };
+  };
+
   const [formData, setFormData] = useState<IPurchaseFormData>({
     whiskeyId: '',
     purchaseDate: new Date().toISOString().split('T')[0],
@@ -85,17 +159,25 @@ const MobilePurchaseHistoryForm: React.FC = () => {
     loadWhiskeys();
   }, []);
 
+  // 위스키 선택 모달이 열릴 때 데이터 다시 로드
+  useEffect(() => {
+    if (showWhiskeySelector) {
+      loadWhiskeys();
+    }
+  }, [showWhiskeySelector]);
+
   const loadWhiskeys = async () => {
     try {
       setLoadingWhiskeys(true);
+      
       const { data, error } = await supabase
         .from('whiskeys')
-        .select('id, name, brand, image_url, type, region, abv, price_range, age')
+        .select('id, name, brand, image_url, type, region, abv, price, age')
         .order('name');
 
       if (error) throw error;
+      
       setWhiskeys(data || []);
-      console.log('Loaded whiskeys:', data?.length || 0);
     } catch (error) {
       console.error('위스키 로드 오류:', error);
     } finally {
@@ -128,6 +210,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
     
     // 최근 가격 조회
     const recentPrice = await loadWhiskeyPrice(whiskey.id);
+    
     if (recentPrice) {
       setSelectedWhiskey({ ...whiskey, recentPrice });
     } else {
@@ -138,10 +221,14 @@ const MobilePurchaseHistoryForm: React.FC = () => {
     setSearchTerm('');
   };
 
-  const filteredWhiskeys = whiskeys.filter(whiskey => 
-    whiskey.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    whiskey.brand.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredWhiskeys = whiskeys.filter(whiskey => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return whiskey.name.toLowerCase().includes(term) ||
+           whiskey.brand?.toLowerCase().includes(term) ||
+           whiskey.type?.toLowerCase().includes(term) ||
+           whiskey.region?.toLowerCase().includes(term);
+  });
 
   const calculateFinalPriceKRW = () => {
     // 원래 가격을 KRW로 변환
@@ -356,29 +443,141 @@ const MobilePurchaseHistoryForm: React.FC = () => {
               {/* 선택된 위스키 상세 정보 */}
               {selectedWhiskey && (
                 <div style={{
-                  marginTop: '10px',
-                  padding: '10px',
+                  marginTop: '12px',
+                  padding: '12px',
                   border: '1px solid #E5E7EB',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   backgroundColor: '#F9FAFB'
                 }}>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '12px' }}>
                     {selectedWhiskey.image_url && (
-                      <img 
-                        src={selectedWhiskey.image_url} 
-                        alt={selectedWhiskey.name}
-                        style={{ width: '50px', height: '70px', objectFit: 'contain', borderRadius: '4px' }}
-                      />
+                      <div style={{ 
+                        width: '150px', 
+                        height: '150px', 
+                        backgroundColor: '#F3F4F6',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        overflow: 'hidden'
+                      }}>
+                        <img 
+                          src={selectedWhiskey.image_url} 
+                          alt={selectedWhiskey.name}
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'contain'
+                          }}
+                        />
+                      </div>
                     )}
-                    <div style={{ flex: 1, fontSize: '12px' }}>
-                      <div style={{ fontWeight: '600', marginBottom: '4px' }}>{selectedWhiskey.name}</div>
-                      <div style={{ color: '#6B7280', marginBottom: '2px' }}>{selectedWhiskey.brand}</div>
-                      {selectedWhiskey.region && <div style={{ color: '#6B7280' }}>📍 {selectedWhiskey.region}</div>}
-                      {selectedWhiskey.type && <div style={{ color: '#6B7280' }}>🥃 {selectedWhiskey.type}</div>}
-                      {selectedWhiskey.abv && <div style={{ color: '#6B7280' }}>📊 ABV: {selectedWhiskey.abv}%</div>}
-                      {selectedWhiskey.price_range && <div style={{ color: '#6B7280' }}>💰 {selectedWhiskey.price_range}</div>}
+                    <div style={{ flex: 1, fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ 
+                        fontSize: '16px', 
+                        fontWeight: '700',
+                        color: '#111827',
+                        marginBottom: '2px'
+                      }}>
+                        {selectedWhiskey.name}
+                      </div>
+                      {selectedWhiskey.brand && (
+                        <div style={{ 
+                          fontSize: '13px',
+                          color: '#6B7280', 
+                          fontWeight: '600' 
+                        }}>
+                          {selectedWhiskey.brand}
+                        </div>
+                      )}
+                      
+                      {/* 상세 정보 카드 그리드 */}
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: '1fr 1fr', 
+                        gap: '6px', 
+                        fontSize: '11px',
+                        marginTop: '4px'
+                      }}>
+                        {selectedWhiskey.type && (() => {
+                          const colors = getTypeColor(selectedWhiskey.type);
+                          return (
+                            <div style={{
+                              backgroundColor: colors.bg,
+                              color: colors.text,
+                              border: `1px solid ${colors.border}`,
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              fontWeight: '600',
+                              textAlign: 'center'
+                            }}>
+                              🥃 {selectedWhiskey.type}
+                            </div>
+                          );
+                        })()}
+                        {selectedWhiskey.region && (() => {
+                          const colors = getRegionColor(selectedWhiskey.region);
+                          return (
+                            <div style={{
+                              backgroundColor: colors.bg,
+                              color: colors.text,
+                              border: `1px solid ${colors.border}`,
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              fontWeight: '600',
+                              textAlign: 'center'
+                            }}>
+                              📍 {selectedWhiskey.region}
+                            </div>
+                          );
+                        })()}
+                        {selectedWhiskey.abv && (() => {
+                          const colors = getABVColor(selectedWhiskey.abv);
+                          return (
+                            <div style={{
+                              backgroundColor: colors.bg,
+                              color: colors.text,
+                              border: `1px solid ${colors.border}`,
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              fontWeight: '600',
+                              textAlign: 'center'
+                            }}>
+                              📊 {selectedWhiskey.abv}%
+                            </div>
+                          );
+                        })()}
+                        {selectedWhiskey.age && (() => {
+                          const colors = getAgeColor();
+                          return (
+                            <div style={{
+                              backgroundColor: colors.bg,
+                              color: colors.text,
+                              border: `1px solid ${colors.border}`,
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              fontWeight: '600',
+                              textAlign: 'center'
+                            }}>
+                              ⏳ {selectedWhiskey.age}년
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      
+                      {/* 최근 가격 정보 */}
                       {selectedWhiskey.recentPrice && (
-                        <div style={{ color: '#3B82F6', fontWeight: '600', marginTop: '4px' }}>
+                        <div style={{ 
+                          marginTop: '8px',
+                          padding: '6px 10px',
+                          backgroundColor: '#DBEAFE',
+                          borderRadius: '6px',
+                          border: '1px solid #3B82F6',
+                          color: '#1E40AF',
+                          fontWeight: '600',
+                          fontSize: '12px'
+                        }}>
                           💵 최근 가격: ₩{formatPrice(selectedWhiskey.recentPrice)}
                         </div>
                       )}
@@ -878,34 +1077,36 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                   {searchTerm ? '검색 결과가 없습니다' : '위스키가 없습니다'}
                 </div>
               ) : (
-                filteredWhiskeys.map(whiskey => (
-                <div
-                  key={whiskey.id}
-                  onClick={() => handleWhiskeySelect(whiskey)}
-                  style={{
-                    padding: '8px',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                    marginBottom: '6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <div style={{ width: '32px', height: '48px', backgroundColor: '#F3F4F6', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                    {whiskey.image_url ? (
-                      <img src={whiskey.image_url} alt={whiskey.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <div style={{ fontSize: '20px' }}>🥃</div>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{whiskey.name}</div>
-                    <div style={{ fontSize: '11px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{whiskey.brand}</div>
-                  </div>
+                <div>
+                  {filteredWhiskeys.map(whiskey => (
+                    <div
+                      key={whiskey.id}
+                      onClick={() => handleWhiskeySelect(whiskey)}
+                      style={{
+                        padding: '8px',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        marginBottom: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <div style={{ width: '32px', height: '48px', backgroundColor: '#F3F4F6', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                        {whiskey.image_url ? (
+                          <img src={whiskey.image_url} alt={whiskey.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        ) : (
+                          <div style={{ fontSize: '20px' }}>🥃</div>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{whiskey.name}</div>
+                        <div style={{ fontSize: '11px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{whiskey.brand}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))
               )}
             </div>
           </div>

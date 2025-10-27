@@ -675,7 +675,7 @@ const MobileHome: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
           <Button
             variant="secondary"
-            onClick={() => navigate('/mobile/tasting-notes')}
+            onClick={() => navigate('/mobile/tasting/new')}
             style={{ 
               height: '80px',
               fontSize: '12px',
@@ -692,7 +692,7 @@ const MobileHome: React.FC = () => {
           </Button>
           <Button
             variant="secondary"
-            onClick={() => navigate('/mobile/purchase')}
+            onClick={() => navigate('/mobile/purchase/form')}
             style={{ 
               height: '80px',
               fontSize: '12px',
@@ -709,7 +709,7 @@ const MobileHome: React.FC = () => {
           </Button>
           <Button
             variant="secondary"
-            onClick={() => navigate('/mobile/whiskeys')}
+            onClick={() => navigate('/mobile/whiskey/new')}
             style={{ 
               height: '80px',
               fontSize: '12px',

@@ -17,6 +17,7 @@ const PersonalNotes: React.FC = () => {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
+  const [tagInput, setTagInput] = useState('');
   const [formData, setFormData] = useState<IPersonalNoteFormData>({
     title: '',
     content: '',
@@ -125,8 +126,8 @@ const PersonalNotes: React.FC = () => {
           .update({
             title: formData.title,
             content: formData.content,
-            category: formData.category,
-            tags: formData.tags,
+            category: formData.category || null,
+            tags: formData.tags && formData.tags.length > 0 ? formData.tags : null,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedNote.id);
@@ -140,8 +141,8 @@ const PersonalNotes: React.FC = () => {
             note_date: selectedDate,
             title: formData.title,
             content: formData.content,
-            category: formData.category,
-            tags: formData.tags
+            category: formData.category || null,
+            tags: formData.tags && formData.tags.length > 0 ? formData.tags : null
           });
 
         if (error) throw error;
@@ -398,18 +399,52 @@ const PersonalNotes: React.FC = () => {
                       {note.note_date}
                     </span>
                   </div>
+                  
+                  {/* 카테고리 표시 */}
                   {note.category && (
                     <span style={{
                       display: 'inline-block',
                       padding: '4px 8px',
-                      backgroundColor: '#DBEAFE',
-                      color: '#1E40AF',
+                      backgroundColor: '#FEF3C7',
+                      color: '#92400E',
                       fontSize: '12px',
                       borderRadius: '12px',
-                      marginBottom: '8px'
+                      marginBottom: '8px',
+                      fontWeight: '600'
                     }}>
-                      {note.category}
+                      🏷️ {note.category}
                     </span>
+                  )}
+                  
+                  {note.tags && note.tags.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                      {note.tags.slice(0, 3).map((tag, index) => (
+                        <span 
+                          key={index}
+                          style={{
+                            display: 'inline-block',
+                            padding: '4px 8px',
+                            backgroundColor: '#DBEAFE',
+                            color: '#1E40AF',
+                            fontSize: '12px',
+                            borderRadius: '12px',
+                            fontWeight: '600'
+                          }}
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                      {note.tags.length > 3 && (
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '4px 8px',
+                          color: '#6B7280',
+                          fontSize: '12px'
+                        }}>
+                          +{note.tags.length - 3}
+                        </span>
+                      )}
+                    </div>
                   )}
                   {note.content && (
                     <p 
@@ -522,19 +557,134 @@ const PersonalNotes: React.FC = () => {
                     }}
                   />
                   
-                  <input
-                    type="text"
-                    placeholder="카테고리 (선택사항)"
-                    value={formData.category}
-                    onChange={(e) => handleFormChange('category', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '4px',
-                      fontSize: '16px'
-                    }}
-                  />
+                  {/* 카테고리 */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                      카테고리
+                    </label>
+                    <select
+                      value={formData.category || ''}
+                      onChange={(e) => handleFormChange('category', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        backgroundColor: 'white'
+                      }}
+                    >
+                      <option value="">선택 안함</option>
+                      <option value="일상">일상</option>
+                      <option value="느낌">느낌</option>
+                      <option value="메모">메모</option>
+                      <option value="위스키">위스키</option>
+                      <option value="구매">구매</option>
+                      <option value="공부">공부</option>
+                      <option value="기타">기타</option>
+                    </select>
+                  </div>
+                  
+                  {/* 해시태그 */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                      해시태그
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="해시태그 입력 후 Enter"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const tag = tagInput.trim();
+                            if (tag && !(formData.tags || []).includes(tag)) {
+                              handleFormChange('tags', [...(formData.tags || []), tag]);
+                              setTagInput('');
+                            }
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '4px',
+                          fontSize: '14px'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const tag = tagInput.trim();
+                          if (tag && !(formData.tags || []).includes(tag)) {
+                            handleFormChange('tags', [...(formData.tags || []), tag]);
+                            setTagInput('');
+                          }
+                        }}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#6b7280',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        추가
+                      </button>
+                    </div>
+                    
+                    {/* 태그 목록 */}
+                      {formData.tags && formData.tags.length > 0 && (
+                      <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '6px',
+                        padding: '8px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '4px',
+                        backgroundColor: '#f9fafb'
+                      }}>
+                        {formData.tags && formData.tags.map((tag, index) => (
+                          <div
+                            key={index}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 8px',
+                              backgroundColor: '#DBEAFE',
+                              color: '#1E40AF',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            #{tag}
+                            <button
+                              type="button"
+                              onClick={() => handleFormChange('tags', (formData.tags || []).filter(t => t !== tag))}
+                              style={{
+                                border: 'none',
+                                background: 'transparent',
+                                color: '#1E40AF',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                padding: '0',
+                                lineHeight: '1',
+                                fontWeight: '700'
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <div>
                     <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
@@ -595,17 +745,25 @@ const PersonalNotes: React.FC = () => {
                       <h4 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>
                         {selectedNote.title}
                       </h4>
-                      {selectedNote.category && (
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '4px 8px',
-                          backgroundColor: '#dbeafe',
-                          color: '#1e40af',
-                          fontSize: '12px',
-                          borderRadius: '9999px'
-                        }}>
-                          {selectedNote.category}
-                        </span>
+                      {selectedNote.tags && selectedNote.tags.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+                          {selectedNote.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              style={{
+                                display: 'inline-block',
+                                padding: '4px 8px',
+                                backgroundColor: '#dbeafe',
+                                color: '#1e40af',
+                                fontSize: '12px',
+                                borderRadius: '12px',
+                                fontWeight: '600'
+                              }}
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>

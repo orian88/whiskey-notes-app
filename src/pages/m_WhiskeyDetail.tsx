@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
 import MobileLayout from '../components/MobileLayout';
@@ -21,14 +21,20 @@ interface IWhiskeyDetail {
   last_price_update?: string;
   total_purchases?: number;
   total_tastings?: number;
+  is_favorite?: boolean;
 }
 
 const MobileWhiskeyDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [whiskey, setWhiskey] = useState<IWhiskeyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'description' | 'price' | 'register'>('description');
+  const [isFavorite, setIsFavorite] = useState(false);
+  
+  // 상위 페이지에서 전달된 activeTab 정보 읽기 (목록/카트)
+  const sourceTab = (location.state as any)?.activeTab || 'list';
   
   // 가격 등록 상태
   const [newPrice, setNewPrice] = useState('');
@@ -178,12 +184,36 @@ const MobileWhiskeyDetail: React.FC = () => {
         exchange_rate: whiskeyData.exchange_rate,
         last_price_update: whiskeyData.last_price_update,
         total_purchases: purchaseCount || 0,
-        total_tastings: tastingCount
+        total_tastings: tastingCount,
+        is_favorite: whiskeyData.is_favorite || false
       });
+      setIsFavorite(whiskeyData.is_favorite || false);
     } catch (error) {
       console.error('데이터 로드 오류:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 즐겨찾기 토글
+  const toggleFavorite = async () => {
+    if (!id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('whiskeys')
+        .update({ is_favorite: !isFavorite })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      setIsFavorite(!isFavorite);
+      if (whiskey) {
+        setWhiskey({ ...whiskey, is_favorite: !isFavorite });
+      }
+    } catch (error) {
+      console.error('즐겨찾기 업데이트 오류:', error);
+      alert('즐겨찾기 업데이트에 실패했습니다.');
     }
   };
 
@@ -232,7 +262,7 @@ const MobileWhiskeyDetail: React.FC = () => {
     <div style={{ padding: '16px', backgroundColor: 'white', minHeight: '100vh' }}>
       {/* 상단 고정 닫기 버튼 */}
       <button
-        onClick={() => navigate('/mobile/whiskeys')}
+        onClick={() => navigate('/mobile/whiskeys', { state: { activeTab: sourceTab } })}
         style={{
           position: 'fixed',
           top: '80px',
@@ -257,7 +287,7 @@ const MobileWhiskeyDetail: React.FC = () => {
 
       {/* 하단 고정 목록으로 버튼 */}
       <button
-        onClick={() => navigate('/mobile/whiskeys')}
+        onClick={() => navigate('/mobile/whiskeys', { state: { activeTab: sourceTab } })}
         style={{
           position: 'fixed',
           bottom: '20px',
@@ -289,7 +319,8 @@ const MobileWhiskeyDetail: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: '20px',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        position: 'relative'
       }}>
         {whiskey.image_url ? (
           <img 
@@ -300,6 +331,31 @@ const MobileWhiskeyDetail: React.FC = () => {
         ) : (
           <div style={{ fontSize: '64px' }}>🥃</div>
         )}
+        
+        {/* 즐겨찾기 버튼 - 왼쪽 상단 */}
+        <button
+          onClick={toggleFavorite}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            left: '12px',
+            width: '44px',
+            height: '44px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            border: '2px solid' + (isFavorite ? '#EF4444' : '#E5E7EB'),
+            color: isFavorite ? '#EF4444' : '#9CA3AF',
+            fontSize: '24px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+            transition: 'all 0.2s'
+          }}
+        >
+          {isFavorite ? '❤️' : '🤍'}
+        </button>
       </div>
 
       {/* 기본 정보 */}

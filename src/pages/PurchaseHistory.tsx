@@ -111,6 +111,7 @@ const PurchaseHistory: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('card');
   const [selectedPurchase, setSelectedPurchase] = useState<IPurchase | null>(null);
   const [recentPrice, setRecentPrice] = useState<number | null>(null);
+  const [selectedWhiskeyPrice, setSelectedWhiskeyPrice] = useState<number | null>(null);
   
   // 환율 입력을 위한 임시 상태
   const [tempOriginalExchangeRate, setTempOriginalExchangeRate] = useState<string>('');
@@ -557,7 +558,7 @@ const PurchaseHistory: React.FC = () => {
         // 위스키 데이터 로드
         const { data: whiskeysData, error: whiskeysError } = await supabase
           .from('whiskeys')
-          .select('id, name, brand, english_name, image_url')
+          .select('id, name, brand, english_name, type, region, age, abv, image_url')
           .order('name');
 
         if (whiskeysError) throw whiskeysError;
@@ -903,11 +904,31 @@ const PurchaseHistory: React.FC = () => {
     setShowForm(true);
   }, []);
 
-  const handleWhiskeySelect = useCallback((whiskey: any) => {
+  const handleWhiskeySelect = useCallback(async (whiskey: any) => {
     setFormData(prev => ({
       ...prev,
       whiskeyId: whiskey.id
     }));
+    
+    // 최근 가격 조회
+    try {
+      const { data, error } = await supabase
+        .from('whiskey_prices')
+        .select('price')
+        .eq('whiskey_id', whiskey.id)
+        .order('price_date', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (!error && data) {
+        setSelectedWhiskeyPrice(data.price);
+      } else {
+        setSelectedWhiskeyPrice(null);
+      }
+    } catch (error) {
+      console.error('최근 가격 조회 오류:', error);
+      setSelectedWhiskeyPrice(null);
+    }
   }, []);
 
   // 폼 초기화 함수
@@ -952,6 +973,7 @@ const PurchaseHistory: React.FC = () => {
     // 모든 임시 상태 초기화
     setTempOriginalExchangeRate('');
     setTempOriginalPrice('');
+    setSelectedWhiskeyPrice(null);
     
     setEditingPurchaseId(null);
   }, []);
@@ -1631,6 +1653,109 @@ const PurchaseHistory: React.FC = () => {
                 </span>
               </div>
             </div>
+
+            {/* 선택된 위스키 상세 정보 */}
+            {formData.whiskeyId && (() => {
+              const selectedWhiskey = whiskeys.find(w => w.id === formData.whiskeyId);
+              if (selectedWhiskey) {
+                return (
+                  <div style={{
+                    padding: '16px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    backgroundColor: '#F9FAFB'
+                  }}>
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                      {/* 위스키 이미지 */}
+                      <div style={{
+                        width: '120px',
+                        height: '160px',
+                        backgroundColor: '#F3F4F6',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        overflow: 'hidden'
+                      }}>
+                        {selectedWhiskey.image_url ? (
+                          <img
+                            src={selectedWhiskey.image_url}
+                            alt={selectedWhiskey.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'contain',
+                              borderRadius: '8px'
+                            }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: '48px' }}>🥃</div>
+                        )}
+                      </div>
+                      
+                      {/* 위스키 정보 */}
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <h3 style={{ 
+                          fontSize: '18px', 
+                          fontWeight: '700', 
+                          color: '#111827',
+                          margin: 0
+                        }}>
+                          {selectedWhiskey.name}
+                        </h3>
+                        
+                        {selectedWhiskey.brand && (
+                          <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: '600' }}>
+                            {selectedWhiskey.brand}
+                          </div>
+                        )}
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '13px' }}>
+                          {selectedWhiskey.type && (
+                            <div style={{ color: '#374151' }}>
+                              <span style={{ color: '#9CA3AF' }}>🥃 타입:</span> {selectedWhiskey.type}
+                            </div>
+                          )}
+                          {selectedWhiskey.region && (
+                            <div style={{ color: '#374151' }}>
+                              <span style={{ color: '#9CA3AF' }}>📍 지역:</span> {selectedWhiskey.region}
+                            </div>
+                          )}
+                          {selectedWhiskey.abv && (
+                            <div style={{ color: '#374151' }}>
+                              <span style={{ color: '#9CA3AF' }}>📊 도수:</span> {selectedWhiskey.abv}%
+                            </div>
+                          )}
+                          {selectedWhiskey.age && (
+                            <div style={{ color: '#374151' }}>
+                              <span style={{ color: '#9CA3AF' }}>⏳ 숙성:</span> {selectedWhiskey.age}년
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* 최근 가격 정보 */}
+                        {selectedWhiskeyPrice && (
+                          <div style={{ 
+                            marginTop: '8px',
+                            padding: '8px 12px',
+                            backgroundColor: '#DBEAFE',
+                            borderRadius: '6px',
+                            border: '1px solid #3B82F6',
+                            color: '#1E40AF',
+                            fontWeight: '600',
+                            fontSize: '14px'
+                          }}>
+                            💵 최근 가격: ₩{selectedWhiskeyPrice.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {/* 구매일 */}
             <div>
