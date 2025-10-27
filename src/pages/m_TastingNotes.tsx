@@ -311,7 +311,7 @@ const MobileTastingNotes: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div ref={containerRef} style={{ backgroundColor: 'white', height: 'calc(100vh - 180px)', overflowY: 'auto' }}>
+          <div ref={containerRef} style={{ backgroundColor: 'white', height: 'calc(100vh - 136px)', overflowY: 'auto' }}>
             {displayedTastings.map((tasting, index) => (
               <div
                 key={tasting.id}

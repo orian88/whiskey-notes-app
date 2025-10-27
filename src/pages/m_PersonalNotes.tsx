@@ -195,7 +195,7 @@ const MobilePersonalNotes: React.FC = () => {
           bindEvents(el);
           containerRef.current = el;
         }}
-        style={{ backgroundColor: '#ffffff', minHeight: 'calc(100vh - 148px)', position: 'relative', overflowY: 'auto' }}>
+        style={{ backgroundColor: '#ffffff', height: 'calc(100vh - 136px)', position: 'relative', overflowY: 'auto' }}>
 
         {/* 목록 */}
       {notes.length === 0 ? (

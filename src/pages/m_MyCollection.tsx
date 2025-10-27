@@ -450,7 +450,7 @@ const MobileMyCollection: React.FC = () => {
           paddingTop: activeTab === 'list' ? (showSearch ? '52px' : '48px') : '48px',
           paddingBottom: '80px',
           overflowY: 'auto',
-          height: 'calc(100vh - 60px)'
+          height: 'calc(100vh - 108px)'
         }}>
           {activeTab === 'list' ? (
             <div>
