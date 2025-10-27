@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd whiskey-notes-app && npm run build",
+  "buildCommand": "cd whiskey-notes-app && npm install && npm run build",
   "outputDirectory": "whiskey-notes-app/dist",
   "framework": "vite",
   "rewrites": [
