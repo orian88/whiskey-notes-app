@@ -54,6 +54,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
   const [showWhiskeySelector, setShowWhiskeySelector] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loadingWhiskeys, setLoadingWhiskeys] = useState(true);
 
   const [formData, setFormData] = useState<IPurchaseFormData>({
     whiskeyId: '',
@@ -86,6 +87,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
 
   const loadWhiskeys = async () => {
     try {
+      setLoadingWhiskeys(true);
       const { data, error } = await supabase
         .from('whiskeys')
         .select('id, name, brand, image_url, type, region, abv, price_range, age')
@@ -93,8 +95,11 @@ const MobilePurchaseHistoryForm: React.FC = () => {
 
       if (error) throw error;
       setWhiskeys(data || []);
+      console.log('Loaded whiskeys:', data?.length || 0);
     } catch (error) {
       console.error('위스키 로드 오류:', error);
+    } finally {
+      setLoadingWhiskeys(false);
     }
   };
 
@@ -119,13 +124,14 @@ const MobilePurchaseHistoryForm: React.FC = () => {
   };
 
   const handleWhiskeySelect = async (whiskey: IWhiskey) => {
-    setSelectedWhiskey(whiskey);
     handleInputChange('whiskeyId', whiskey.id);
     
     // 최근 가격 조회
     const recentPrice = await loadWhiskeyPrice(whiskey.id);
-    if (recentPrice && selectedWhiskey) {
+    if (recentPrice) {
       setSelectedWhiskey({ ...whiskey, recentPrice });
+    } else {
+      setSelectedWhiskey(whiskey);
     }
     
     setShowWhiskeySelector(false);
@@ -517,6 +523,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                       placeholder="0"
                       value={formData.basicDiscountAmount.toString()}
                       onChange={(value) => handleInputChange('basicDiscountAmount', parseFloat(value) || 0)}
+                      style={{ height: '32px', lineHeight: '20px' }}
                     />
                   </div>
                 </div>
@@ -574,6 +581,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                       placeholder="0"
                       value={formData.couponDiscountAmount.toString()}
                       onChange={(value) => handleInputChange('couponDiscountAmount', parseFloat(value) || 0)}
+                      style={{ height: '32px', lineHeight: '20px' }}
                     />
                   </div>
                 </div>
@@ -631,6 +639,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                       placeholder="0"
                       value={formData.membershipDiscountAmount.toString()}
                       onChange={(value) => handleInputChange('membershipDiscountAmount', parseFloat(value) || 0)}
+                      style={{ height: '32px', lineHeight: '20px' }}
                     />
                   </div>
                 </div>
@@ -688,6 +697,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                       placeholder="0"
                       value={formData.eventDiscountAmount.toString()}
                       onChange={(value) => handleInputChange('eventDiscountAmount', parseFloat(value) || 0)}
+                      style={{ height: '32px', lineHeight: '20px' }}
                     />
                   </div>
                 </div>
@@ -807,20 +817,22 @@ const MobilePurchaseHistoryForm: React.FC = () => {
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
           zIndex: 1000,
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'center',
-          padding: '20px'
+          padding: '20px',
+          overflow: 'auto'
         }}>
           <div style={{
             backgroundColor: 'white',
             borderRadius: '16px',
-            padding: '20px',
-            maxHeight: '80vh',
+            padding: '16px',
+            maxHeight: '70vh',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
             width: '100%',
-            maxWidth: '400px'
+            maxWidth: '400px',
+            marginTop: '20px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: '600' }}>위스키 선택</h3>
@@ -856,8 +868,17 @@ const MobilePurchaseHistoryForm: React.FC = () => {
               />
             </div>
             
-            <div style={{ overflow: 'auto', flex: 1 }}>
-              {filteredWhiskeys.map(whiskey => (
+            <div style={{ overflow: 'auto', flex: 1, minHeight: '200px' }}>
+              {loadingWhiskeys ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9CA3AF' }}>
+                  로딩 중...
+                </div>
+              ) : filteredWhiskeys.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9CA3AF' }}>
+                  {searchTerm ? '검색 결과가 없습니다' : '위스키가 없습니다'}
+                </div>
+              ) : (
+                filteredWhiskeys.map(whiskey => (
                 <div
                   key={whiskey.id}
                   onClick={() => handleWhiskeySelect(whiskey)}
@@ -884,7 +905,8 @@ const MobilePurchaseHistoryForm: React.FC = () => {
                     <div style={{ fontSize: '11px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{whiskey.brand}</div>
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
         </div>
