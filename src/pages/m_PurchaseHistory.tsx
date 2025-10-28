@@ -561,6 +561,7 @@ const MobilePurchaseHistory: React.FC = () => {
                   )}
                 </div>
               </div>
+              </div>
             </SwipeableCard>
           ))}
           {/* 더보기 버튼 */}
