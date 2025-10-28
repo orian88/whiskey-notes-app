@@ -1,0 +1,1194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 메모리 효율성을 위한 최적화 */
+* {
+  box-sizing: border-box;
+}
+
+/* 불필요한 애니메이션 제거 (메모리 절약) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* GPU 가속 최적화 */
+.whiskey-card,
+.purchase-card,
+.tasting-note-card,
+.collection-card {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* 메모리 효율적인 호버 효과 */
+.whiskey-card:hover,
+.purchase-card:hover,
+.tasting-note-card:hover,
+.collection-card:hover {
+  transform: translateY(-2px) translateZ(0);
+  transition: transform 0.2s ease-out;
+}
+
+/* Range Input 스타일 */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: #E5E7EB;
+  height: 6px;
+  border-radius: 3px;
+  border: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #8B4513;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+input[type="range"]::-moz-range-track {
+  background: #E5E7EB;
+  height: 6px;
+  border-radius: 3px;
+  border: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: #8B4513;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 애니메이션 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blob {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+.animate-shake {
+  animation: shake 0.5s;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s ease-out;
+}
+
+/* 기본 스타일 */
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f9fafb;
+  color: #111827;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+}
+
+/* 링크 스타일 */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+/* 컨테이너 */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* 헤더 */
+.header {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 사이드바 - 팝업 메뉴로 변경되어 주석 처리 */
+/* .sidebar { ... } */
+/* 팝업 메뉴 스타일은 Layout.tsx에서 Tailwind CSS로 처리 */
+
+/* 헤더 관련 스타일 - Layout.tsx에서 Tailwind CSS로 처리됨 */
+/* .header-left { ... } */
+
+/* 메인 컨텐츠 내부 일관성 - Tailwind CSS로 처리됨 */
+
+/* 위스키 목록 상단 컨트롤 영역 */
+.whiskey-controls {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 1rem !important;
+  align-items: center !important;
+  margin-bottom: 2rem !important;
+  padding: 0 20px 0 0 !important;
+}
+
+.whiskey-controls input,
+.whiskey-controls button,
+.whiskey-controls select {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+  font-size: 14px !important;
+  color: #111827 !important;
+}
+
+/* 카드 기본 스타일 */
+.card {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  margin-bottom: 1rem;
+}
+
+.card.whiskey-card,
+.card.tasting-note-card,
+.card.collection-card {
+  padding: 20px !important;
+  margin-bottom: 0 !important;
+  height: 400px !important;
+  min-height: 400px !important;
+  max-height: 400px !important;
+}
+
+.card.purchase-card {
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+  height: 400px !important;
+  min-height: 400px !important;
+  max-height: 400px !important;
+}
+
+/* 달력 카드 스타일 */
+.card.calendar-card {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 100% !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.card-header {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #111827;
+}
+
+/* 버튼 */
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: #92400e;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #78350f;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background-color: #d1d5db;
+}
+
+.btn-sm {
+  padding: 0.375rem 0.75rem !important;
+  font-size: 0.875rem !important;
+}
+
+.btn-md {
+  padding: 0.5rem 1rem !important;
+  font-size: 1rem !important;
+}
+
+.btn-lg {
+  padding: 0.75rem 1.5rem !important;
+  font-size: 1.125rem !important;
+}
+
+.btn-danger {
+  background-color: #dc2626 !important;
+  color: white !important;
+}
+
+.btn-danger:hover {
+  background-color: #b91c1c !important;
+}
+
+/* 입력 필드 */
+.input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  height: 44px;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #92400e;
+  box-shadow: 0 0 0 3px rgba(146, 64, 14, 0.1);
+}
+
+/* 그리드 클래스들 */
+.grid-cols-1 {
+  grid-template-columns: repeat(1, 1fr);
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 사이드바 반응형 */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 30px !important;
+    position: fixed !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+  }
+  
+  .main-content {
+    margin-left: 60px !important;
+  }
+}
+
+/* 폰트 크기 통일 및 색상 강조 */
+.text-primary {
+  font-size: 16px;
+  color: #111827;
+  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-secondary {
+  font-size: 14px;
+  color: #6B7280;
+  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-small {
+  font-size: 12px;
+  color: #9CA3AF;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-large {
+  font-size: 18px;
+  color: #111827;
+  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-label-required {
+  font-size: 14px;
+  font-weight: 500;
+  color: #DC2626;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-price {
+  font-size: 16px;
+  font-weight: 600;
+  color: #8B4513;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-price-large {
+  font-size: 18px;
+  font-weight: 700;
+  color: #8B4513;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.text-discount {
+  font-size: 12px;
+  font-weight: 500;
+  color: #DC2626;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* 입력 필드 폰트 통일 */
+input, select, textarea {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+  font-size: 14px !important;
+  color: #111827 !important;
+}
+
+/* 폼 레이아웃 스타일 */
+.form-section {
+  margin-bottom: 24px !important;
+}
+
+.form-section-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 8px !important;
+  border-bottom: 2px solid #E5E7EB !important;
+}
+
+.form-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+  gap: 16px !important;
+}
+
+.form-grid-full {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+}
+
+.form-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.form-group-row {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.form-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+  margin-bottom: 4px !important;
+}
+
+.form-label-required {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #DC2626 !important;
+  margin-bottom: 4px !important;
+}
+
+.form-label-required::after {
+  content: ' *' !important;
+  color: #DC2626 !important;
+}
+
+/* 필터 및 검색 스타일 */
+.filter-section {
+  background-color: white !important;
+  border: 1px solid #E5E7EB !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  margin-bottom: 24px !important;
+}
+
+.filter-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 16px !important;
+}
+
+.filter-content {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  gap: 16px !important;
+}
+
+.filter-reset {
+  text-align: center !important;
+  margin-top: 16px !important;
+}
+
+/* 페이지 헤더 스타일 */
+.page-header {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  margin-bottom: 24px !important;
+}
+
+.page-title {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: #111827 !important;
+  margin: 0 !important;
+}
+
+.page-subtitle {
+  color: #6B7280 !important;
+  font-size: 16px !important;
+  margin: 0 !important;
+}
+
+.page-actions {
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+/* 로딩 및 에러 상태 */
+.loading-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: start !important;
+  justify-items: start !important;
+  height: 256px !important;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite !important;
+  border-radius: 50% !important;
+  height: 48px !important;
+  width: 48px !important;
+  border-bottom: 2px solid #8B4513 !important;
+  margin: 0 auto 16px !important;
+}
+
+.error-container {
+  text-align: center !important;
+  padding: 48px 0 !important;
+}
+
+.error-message {
+  color: #DC2626 !important;
+  margin-bottom: 16px !important;
+}
+
+.error-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+}
+
+.error-description {
+  font-size: 14px !important;
+}
+
+/* 빈 상태 스타일 */
+.empty-container {
+  text-align: center !important;
+  padding: 48px !important;
+}
+
+.empty-icon {
+  font-size: 64px !important;
+  margin-bottom: 16px !important;
+}
+
+.empty-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  margin-bottom: 8px !important;
+  color: #111827 !important;
+}
+
+.empty-description {
+  margin-bottom: 24px !important;
+  color: #6B7280 !important;
+}
+
+/* 달력 스타일 */
+.responsive-calendar-cell:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.responsive-calendar-cell.today {
+  background-color: #eff6ff !important;
+}
+
+.responsive-calendar-cell.other-month {
+  background-color: #f9fafb !important;
+  color: #9ca3af !important;
+}
+
+.calendar-event {
+  font-size: 9px !important;
+  padding: 2px 4px !important;
+  margin: 1px 0 !important;
+  border-radius: 3px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  min-height: 16px !important;
+  max-width: 100% !important;
+}
+
+.calendar-event.purchase,
+.calendar-event.tasting {
+  background-color: white !important;
+  background: white !important;
+  color: #1e293b !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.calendar-event img {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 2px !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.calendar-event:hover {
+  background-color: #f9fafb !important;
+  border-color: #d1d5db !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.calendar-event:hover img {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.calendar-event-text {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  flex: 1 !important;
+}
+
+/* 달력 그리드 레이아웃 */
+.responsive-calendar {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.calendar-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  width: 100% !important;
+  flex: 1 !important;
+  box-sizing: border-box !important;
+}
+
+.responsive-calendar-cell {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .responsive-calendar-cell {
+    min-height: 80px !important;
+    padding: 4px !important;
+  }
+  
+  .calendar-event {
+    font-size: 9px !important;
+    padding: 2px 4px !important;
+    min-height: 18px !important;
+  }
+  
+  .calendar-event img {
+    width: 12px !important;
+    height: 12px !important;
+  }
+}
+
+/* 태블릿 최적화 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .responsive-calendar-cell {
+    min-height: 100px !important;
+    padding: 6px !important;
+  }
+  
+  .calendar-event {
+    font-size: 10px !important;
+    padding: 3px 5px !important;
+    min-height: 20px !important;
+  }
+  
+  .calendar-event img {
+    width: 14px !important;
+    height: 14px !important;
+  }
+}
+
+/* 데스크톱 최적화 */
+@media (min-width: 1025px) {
+  .responsive-calendar-cell {
+    min-height: 120px !important;
+    padding: 8px !important;
+  }
+  
+  .calendar-event {
+    font-size: 11px !important;
+    padding: 3px 6px !important;
+    min-height: 22px !important;
+  }
+  
+  .calendar-event img {
+    width: 16px !important;
+    height: 16px !important;
+  }
+}
+
+/* 구매 기록 카드 그리드 스타일 */
+.purchase-grid-container {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+  padding-top: 20px !important;
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+
+/* 테이스팅 노트 카드 그리드 스타일 */
+.tasting-note-grid-container {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+  padding-top: 20px !important;
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+
+/* 위스키 목록 카드 그리드 스타일 */
+.whiskey-grid-container {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+  padding-top: 20px !important;
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+
+/* 모바일에서 카드 크기 조정 */
+@media (max-width: 768px) {
+  .purchase-grid-container {
+    padding: 16px !important;
+  }
+  
+  .tasting-note-grid-container {
+    padding: 16px !important;
+    padding-left: 20px !important;
+  }
+  
+  .purchase-card {
+    width: 100% !important;
+    min-width: 250px !important;
+    max-width: 100% !important;
+    padding-left: 20px !important;
+    height: 380px !important;
+    min-height: 380px !important;
+    max-height: 380px !important;
+  }
+}
+
+/* 태블릿에서 카드 크기 조정 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .purchase-grid-container {
+    padding: 18px !important;
+  }
+  
+  .tasting-note-grid-container {
+    padding: 18px !important;
+  }
+  
+  .purchase-card {
+    width: 100% !important;
+    min-width: 260px !important;
+    max-width: 100% !important;
+    height: 400px !important;
+    min-height: 400px !important;
+    max-height: 400px !important;
+  }
+}
+
+/* 데스크톱에서 카드 크기 조정 */
+@media (min-width: 1025px) {
+  .purchase-grid-container {
+    padding: 20px !important;
+  }
+  
+  .tasting-note-grid-container {
+    padding: 20px !important;
+  }
+}
+
+/* 대형 화면 최적화 */
+@media (min-width: 1400px) {
+  .responsive-calendar-cell {
+    min-height: 140px !important;
+    padding: 10px !important;
+    font-size: 14px !important;
+  }
+  
+  .calendar-event {
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+    min-height: 24px !important;
+  }
+  
+  .calendar-event img {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  
+  .purchase-grid-container {
+    padding: 24px !important;
+  }
+  
+  .tasting-note-grid-container {
+    padding: 24px !important;
+  }
+}
+
+/* 초대형 화면 최적화 */
+@media (min-width: 1800px) {
+  .responsive-calendar-cell {
+    min-height: 160px !important;
+    padding: 12px !important;
+    font-size: 16px !important;
+  }
+  
+  .calendar-event {
+    font-size: 13px !important;
+    padding: 5px 10px !important;
+    min-height: 26px !important;
+  }
+  
+  .calendar-event img {
+    width: 20px !important;
+    height: 20px !important;
+  }
+}
+
+/* 달력 헤더 스타일 */
+.calendar-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 16px !important;
+  background-color: #f9fafb !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 60px !important;
+  position: relative !important;
+  overflow: visible !important;
+  margin: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  flex-direction: row !important;
+}
+
+.calendar-header > * {
+  flex-shrink: 0 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  max-width: none !important;
+  overflow: visible !important;
+}
+
+.calendar-header button {
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  max-width: none !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+.calendar-title {
+  flex: 1 !important;
+  text-align: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  white-space: nowrap !important;
+}
+
+.calendar-nav-button {
+  padding: 8px 16px !important;
+  background-color: #8B4513 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  min-width: 80px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: inline-block !important;
+  position: relative !important;
+  z-index: 100 !important;
+  margin: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.calendar-nav-button:hover {
+  background-color: #7a3a0f !important;
+}
+
+.calendar-today-button:hover {
+  background-color: #1d4ed8 !important;
+}
+
+/* 이벤트 목록 모달 스타일 */
+.event-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10001 !important;
+  padding: 20px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  transform: none !important;
+}
+
+.event-modal-content {
+  background-color: white !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  max-width: 500px !important;
+  width: 100% !important;
+  max-height: 80vh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.event-modal-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 20px 24px !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  background-color: #f9fafb !important;
+}
+
+.event-modal-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #1f2937 !important;
+  margin: 0 !important;
+}
+
+.event-modal-close {
+  background: none !important;
+  border: none !important;
+  font-size: 20px !important;
+  color: #6b7280 !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  border-radius: 4px !important;
+  transition: all 0.2s !important;
+}
+
+.event-modal-close:hover {
+  background-color: #e5e7eb !important;
+  color: #374151 !important;
+}
+
+.event-modal-body {
+  padding: 0 !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+}
+
+.event-modal-empty {
+  padding: 40px 24px !important;
+  text-align: center !important;
+  color: #6b7280 !important;
+}
+
+.event-modal-list {
+  padding: 0 !important;
+}
+
+.event-modal-item {
+  padding: 16px 24px !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s !important;
+}
+
+.event-modal-item:hover {
+  background-color: #f9fafb !important;
+}
+
+.event-modal-item:last-child {
+  border-bottom: none !important;
+}
+
+.event-modal-item-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.event-modal-item-image {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 6px !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
+}
+
+.event-modal-item-info {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.event-modal-item-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: 4px !important;
+}
+
+.whiskey-name {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #1f2937 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.glass-count {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #ef4444 !important;
+  flex-shrink: 0 !important;
+}
+
+.event-modal-item-type {
+  font-size: 12px !important;
+  color: #6b7280 !important;
+  background-color: #f3f4f6 !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  display: inline-block !important;
+}
+
+/* 필터 섹션 반응형 스타일 */
+.filter-container {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+  align-items: end !important;
+}
+
+/* 모바일에서 필터 세로 배치 */
+@media (max-width: 768px) {
+  .filter-container {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .filter-container > div {
+    min-width: unset !important;
+    width: 100% !important;
+  }
+  
+  .filter-container .filter-divider {
+    display: none !important;
+  }
+  
+  .filter-container .filter-reset-button {
+    margin-left: 0 !important;
+    margin-top: 16px !important;
+  }
+}
+
+/* 태블릿에서 필터 조정 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .filter-container > div {
+    min-width: 120px !important;
+  }
+}
+
+/* 데스크톱에서 필터 최적화 */
+@media (min-width: 1025px) {
+  .filter-container > div {
+    min-width: 100px !important;
+  }
+}
+
+/* 가로 스크롤 숨김 */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
