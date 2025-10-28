@@ -1,12 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import MobileLayout from '../components/MobileLayout';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
+import PurchaseModal from '../components/PurchaseModal';
+
+// 디바운스 훅
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 interface IPurchase {
   id: string;
@@ -28,37 +46,31 @@ interface IPurchase {
 
 const MobilePurchaseHistory: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [purchases, setPurchases] = useState<IPurchase[]>([]);
   const [displayedPurchases, setDisplayedPurchases] = useState<IPurchase[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms 디바운스
   const [filterLocation, setFilterLocation] = useState('');
   const [filterStore, setFilterStore] = useState('');
   const [sortBy, setSortBy] = useState('date'); // date, price, name
   const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
   const [showSearch, setShowSearch] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleRefresh = useCallback(async () => {
-    await loadData();
-  }, []);
-
-  const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
-    onRefresh: handleRefresh,
-    threshold: 80
-  });
-
-  const loadData = async () => {
+  const loadData = React.useCallback(async (skipLoading = false) => {
     try {
-      setLoading(true);
-      const { data, error } = await supabase
+      if (!skipLoading) {
+        setLoading(true);
+      }
+      
+      let query = supabase
         .from('purchases')
         .select(`
           *,
@@ -67,7 +79,9 @@ const MobilePurchaseHistory: React.FC = () => {
             brand,
             image_url
           )
-        `)
+        `);
+      
+      const { data, error } = await query
         .order('purchase_date', { ascending: false });
 
       if (error) throw error;
@@ -86,15 +100,48 @@ const MobilePurchaseHistory: React.FC = () => {
         whiskey: item.whiskeys
       }));
 
+      // 전체 데이터를 저장 (검색은 클라이언트 사이드에서 처리)
       setPurchases(formatted);
       setDisplayedPurchases(formatted.slice(0, pageSize));
       setHasMore(formatted.length > pageSize);
     } catch (error) {
       console.error('데이터 로드 오류:', error);
     } finally {
-      setLoading(false);
+      if (!skipLoading) {
+        setLoading(false);
+        setIsInitialLoading(false);
+      }
     }
-  };
+  }, [pageSize]);
+
+  // 검색어나 필터 변경 시에는 클라이언트 사이드 필터링만 사용
+  // filteredAndSortedPurchases useMemo가 이미 처리하므로 재조회 불필요
+
+  const handleRefresh = useCallback(async () => {
+    await loadData();
+  }, [loadData]);
+
+  // 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 목록으로 돌아왔을 때 스크롤 위치 복원
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem('purchaseListScroll');
+    if (savedScroll && location.pathname === '/mobile/purchase') {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(savedScroll));
+        sessionStorage.removeItem('purchaseListScroll');
+      }, 150);
+    }
+  }, [location.pathname]);
+
+  const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 80
+  });
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ko-KR').format(Math.floor(price));
@@ -107,11 +154,11 @@ const MobilePurchaseHistory: React.FC = () => {
            (purchase.event_discount_amount || 0) > 0;
   };
 
-  const filteredAndSortedPurchases = purchases
+  const filteredAndSortedPurchases = React.useMemo(() => purchases
     .filter(item => {
-      // 검색어 필터
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
+      // 검색어 필터 (디바운스 적용)
+      if (debouncedSearchTerm) {
+        const term = debouncedSearchTerm.toLowerCase();
         if (!item.whiskey?.name?.toLowerCase().includes(term) &&
             !item.whiskey?.brand?.toLowerCase().includes(term) &&
             !item.purchase_location?.toLowerCase().includes(term) &&
@@ -145,7 +192,7 @@ const MobilePurchaseHistory: React.FC = () => {
         return sortOrder === 'desc' ? bName.localeCompare(aName) : aName.localeCompare(bName);
       }
       return 0;
-    });
+    }), [purchases, debouncedSearchTerm, filterLocation, filterStore, sortBy, sortOrder]);
 
   // 필터링 및 정렬된 항목에 따라 표시할 항목 업데이트
   useEffect(() => {
@@ -154,23 +201,7 @@ const MobilePurchaseHistory: React.FC = () => {
     setHasMore(displayed.length < filteredAndSortedPurchases.length);
   }, [filteredAndSortedPurchases, page, pageSize]);
 
-  // 무한 스크롤
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!containerRef.current || loading || !hasMore) return;
-      
-      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-      if (scrollTop + clientHeight >= scrollHeight - 100) {
-        setPage(prev => prev + 1);
-      }
-    };
-
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [loading, hasMore]);
+  // 무한 스크롤 비활성화 (더보기 버튼 사용)
 
   const locations = Array.from(new Set(purchases.map(p => p.purchase_location).filter(Boolean)));
   const stores = Array.from(new Set(purchases.map(p => p.store_name).filter(Boolean)));
@@ -256,29 +287,35 @@ const MobilePurchaseHistory: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  if (isInitialLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <div style={{ display: 'flex', opacity: 0.8, justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div>로딩 중...</div>
       </div>
     );
   }
 
   return (
-    <MobileLayout
-      searchValue={searchTerm}
-      onSearchChange={(value: string) => setSearchTerm(value)}
-      filterOptions={filterOptions}
-      onResetFilters={() => {
-        setSearchTerm('');
-        setFilterLocation('');
-        setFilterStore('');
-        setSortBy('date');
-        setSortOrder('desc');
-      }}
-      searchVisible={showSearch}
-      onSearchVisibleChange={setShowSearch}
-    >
+    <>
+      {/* 구매 상세보기 모달 */}
+      {selectedPurchaseId && (
+        <PurchaseModal purchaseId={selectedPurchaseId} onClose={() => setSelectedPurchaseId(null)} />
+      )}
+
+      <MobileLayout
+        searchValue={searchTerm}
+        onSearchChange={(value: string) => setSearchTerm(value)}
+        filterOptions={filterOptions}
+        onResetFilters={() => {
+          setSearchTerm('');
+          setFilterLocation('');
+          setFilterStore('');
+          setSortBy('date');
+          setSortOrder('desc');
+        }}
+        searchVisible={showSearch}
+        onSearchVisibleChange={setShowSearch}
+      >
       <div 
         ref={(el) => {
           bindEvents(el);
@@ -304,6 +341,61 @@ const MobilePurchaseHistory: React.FC = () => {
         구매 기록 ({purchases.length}개)
       </div>
 
+      {/* 필터 상태 표시 */}
+      {(searchTerm || filterLocation || filterStore) && (
+        <div style={{
+          position: 'sticky',
+          top: '0px',
+          zIndex: 10,
+          backgroundColor: '#FEF3C7',
+          padding: '8px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid #FDE68A'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#92400E' }}>
+              🔍 필터 적용 중
+            </span>
+            {searchTerm && (
+              <span style={{ fontSize: '10px', color: '#B45309' }}>
+                검색: {searchTerm}
+              </span>
+            )}
+            {filterLocation && (
+              <span style={{ fontSize: '10px', color: '#B45309' }}>
+                장소: {filterLocation}
+              </span>
+            )}
+            {filterStore && (
+              <span style={{ fontSize: '10px', color: '#B45309' }}>
+                구매처: {filterStore}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              setFilterLocation('');
+              setFilterStore('');
+            }}
+            style={{
+              padding: '4px 8px',
+              backgroundColor: '#92400E',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            필터 해제
+          </button>
+        </div>
+      )}
+
       {/* 목록 */}
       {purchases.length === 0 ? (
         <div style={{ padding: '40px 16px', textAlign: 'center' }}>
@@ -316,18 +408,21 @@ const MobilePurchaseHistory: React.FC = () => {
           </Button>
         </div>
       ) : (
-        <div ref={containerRef} style={{ backgroundColor: 'white', padding: '8px', gap: '0px', height: 'calc(100vh - 56px)', overflowY: 'auto' }}>
+        <div ref={containerRef} style={{ backgroundColor: 'white', padding: '8px', gap: '0px', height: '100%', overflowY: 'visible' }}>
           {displayedPurchases.map((purchase, index) => (
             <div
               key={purchase.id}
-              onClick={() => navigate(`/mobile/purchase/${purchase.id}`)}
+              onClick={() => setSelectedPurchaseId(purchase.id)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 padding: '12px',
                 borderBottom: index < filteredAndSortedPurchases.length - 1 ? '1px solid #E5E7EB' : 'none',
                 backgroundColor: 'white',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                animation: 'slideIn 0.4s ease-out forwards',
+                opacity: 0,
+                animationDelay: `${index * 0.05}s`
               }}
             >
               {/* 왼쪽: 이미지 */}
@@ -432,10 +527,33 @@ const MobilePurchaseHistory: React.FC = () => {
               </div>
             </div>
           ))}
+          {/* 더보기 버튼 */}
+          {hasMore && displayedPurchases.length > 0 && (
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <button
+                onClick={() => setPage(prev => prev + 1)}
+                disabled={loading}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#8B4513',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1
+                }}
+              >
+                {loading ? '로딩 중...' : '더보기'}
+              </button>
+            </div>
+          )}
         </div>
-      )}
+        )}
       </div>
     </MobileLayout>
+    </>
   );
 };
 

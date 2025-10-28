@@ -2279,9 +2279,14 @@ const PurchaseHistory: React.FC = () => {
               threshold={80}
               style={pullToRefresh.refreshIndicatorStyle}
             />
-            {filteredPurchases.map((purchase) => (
+            {filteredPurchases.map((purchase, index) => (
               <div
                 key={purchase.id}
+                style={{
+                  animation: 'slideIn 0.4s ease-out forwards',
+                  opacity: 0,
+                  animationDelay: `${index * 0.05}s`
+                }}
                 onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
                   const menu = e.currentTarget.querySelector('.card-menu') as HTMLElement;
                   if (menu) menu.style.display = 'flex';

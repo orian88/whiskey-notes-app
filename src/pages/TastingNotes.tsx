@@ -1945,12 +1945,17 @@ const TastingNotes: React.FC = () => {
           ref={gridContainerRef}
           className="tasting-note-grid-container"
         >
-          {filteredNotes.map(note => {
+          {filteredNotes.map((note, index) => {
             const whiskey = note.whiskey || whiskeys.find(w => w.id === note.whiskey_id);
             
             return (
               <div
                 key={note.id}
+                style={{
+                  animation: 'slideIn 0.4s ease-out forwards',
+                  opacity: 0,
+                  animationDelay: `${index * 0.05}s`
+                }}
                 onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
                   const menu = e.currentTarget.querySelector('.card-menu') as HTMLElement;
                   if (menu) menu.style.display = 'flex';

@@ -8,11 +8,13 @@ interface IMobileLayoutProps {
   children: React.ReactNode;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  onSearchExecute?: () => void;
   filterOptions?: React.ReactNode;
   onResetFilters?: () => void;
   searchVisible?: boolean;
   onSearchVisibleChange?: (visible: boolean) => void;
   showSearchBar?: boolean;
+  categoryTabs?: React.ReactNode; // 카테고리 탭 추가
   pageConfig?: {
     enableSearch?: boolean;
     enableFilters?: boolean;
@@ -20,7 +22,7 @@ interface IMobileLayoutProps {
   };
 }
 
-const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = '', onSearchChange, filterOptions, onResetFilters, searchVisible, onSearchVisibleChange, showSearchBar = true, pageConfig }) => {
+const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = '', onSearchChange, onSearchExecute, filterOptions, onResetFilters, searchVisible, onSearchVisibleChange, showSearchBar = true, categoryTabs, pageConfig }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
@@ -58,7 +60,6 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
     // /mobile/tasting-notes 또는 /mobile/tasting으로 시작하는 경우 tasting 탭
     else if (path === '/mobile/tasting-notes' || path.startsWith('/mobile/tasting')) {
       setActiveTab('tasting');
-      console.log('Active Tab set to tasting for path:', path);
     }
     // /mobile/purchase로 시작하는 경우 purchase 탭
     else if (path.startsWith('/mobile/purchase')) {
@@ -75,29 +76,10 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
     // /mobile/whiskey 또는 /mobile/whiskeys로 시작하는 경우 whiskey 탭 (다른 탭들 이후에 체크)
     else if (path.startsWith('/mobile/whiskey') || path.startsWith('/mobile/whiskeys')) {
       setActiveTab('whiskey');
-      console.log('Active Tab set to whiskey for path:', path);
     }
     // /mobile/profile로 시작하는 경우 profile 탭
     else if (path.startsWith('/mobile/profile')) {
       setActiveTab('profile');
-    }
-    
-    // 디버깅 로그
-    if (path.includes('tasting')) {
-      console.log('🔍 TASTING PAGE DETECTED - Path:', path);
-      console.log('🔍 activeTab set to: tasting');
-    } else if (path.includes('whiskey')) {
-      console.log('🔍 WHISKEY PAGE DETECTED - Path:', path);
-      console.log('🔍 activeTab set to: whiskey');
-    } else if (path.includes('purchase')) {
-      console.log('🔍 PURCHASE PAGE DETECTED - Path:', path);
-      console.log('🔍 activeTab set to: purchase');
-    } else if (path.includes('notes')) {
-      console.log('🔍 NOTES PAGE DETECTED - Path:', path);
-      console.log('🔍 activeTab set to: notes');
-    } else if (path.includes('collection')) {
-      console.log('🔍 COLLECTION PAGE DETECTED - Path:', path);
-      console.log('🔍 activeTab set to: collection');
     }
   }, [location.pathname]);
 
@@ -105,12 +87,12 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
   const isFormMode = location.pathname.includes('/new') || location.pathname.includes('/edit') || location.pathname.includes('/form');
   
   const navigation = [
-    { id: 'home', name: '홈', icon: '🏠', path: '/mobile' },
-    { id: 'whiskey', name: '위스키', icon: '🥃', path: '/mobile/whiskeys' },
-    { id: 'tasting', name: '테이스팅', icon: '📝', path: '/mobile/tasting-notes' },
-    { id: 'purchase', name: '구매', icon: '🛒', path: '/mobile/purchase' },
-    { id: 'notes', name: '내 노트', icon: '📖', path: '/mobile/notes' },
-    { id: 'collection', name: '진열장', icon: '🏛️', path: '/mobile/collection' },
+    { id: 'home', name: 'Whiskey Notes', icon: '🏠', path: '/mobile' },
+    { id: 'whiskey', name: 'Whiskey', icon: '🥃', path: '/mobile/whiskeys' },
+    { id: 'tasting', name: 'Tasting', icon: '📝', path: '/mobile/tasting-notes' },
+    { id: 'purchase', name: 'Purchase', icon: '🛒', path: '/mobile/purchase' },
+    { id: 'notes', name: 'My Notes', icon: '📖', path: '/mobile/notes' },
+    { id: 'collection', name: 'My Collection', icon: '🏛️', path: '/mobile/collection' },
   ];
 
   const handleNavigate = (path: string) => {
@@ -124,9 +106,15 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
 
   return (
     <div style={{ 
-      position: 'relative', 
-      minHeight: '100vh',
-      backgroundColor: '#ffffff'
+      position: 'fixed', 
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: '100vh',
+      width: '100vw',
+      backgroundColor: '#ffffff',
+      overflow: 'hidden'
     }}>
       {/* 상단 고정 헤더 */}
       <header 
@@ -151,20 +139,22 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
           gap: '12px',
           flex: 1
         }}>
-          {/* 메뉴 버튼 */}
-          <button
-            onClick={handleLogout}
-            style={{ 
-              padding: '8px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              fontSize: '18px'
-            }}
-          >
-            ☰
-          </button>
+          {/* 메뉴 버튼 - 홈에서는 숨김 */}
+          {activeTab !== 'home' && (
+            <button
+              onClick={handleLogout}
+              style={{ 
+                padding: '8px',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontSize: '18px'
+              }}
+            >
+              ☰
+            </button>
+          )}
 
           {/* 페이지 제목 */}
           <div style={{ 
@@ -179,6 +169,25 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
 
           {/* 우측 버튼들 */}
           <div style={{ display: 'flex', gap: '8px' }}>
+            {/* 홈일 때 설정 버튼 */}
+            {activeTab === 'home' && !isFormMode && (
+              <button
+                onClick={() => navigate('/mobile/settings')}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ⚙️
+              </button>
+            )}
             {(activeTab === 'whiskey' || activeTab === 'tasting' || activeTab === 'purchase' || activeTab === 'notes') && !isFormMode && (
               <button
                 onClick={() => {
@@ -227,8 +236,8 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
         </div>
       </header>
 
-      {/* 검색창 */}
-      {!isFormMode && showSearchBar && (
+      {/* 카테고리 탭 */}
+      {categoryTabs && (
         <div 
           style={{
             position: 'fixed',
@@ -236,9 +245,41 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
             left: 0,
             right: 0,
             backgroundColor: 'white',
+            zIndex: 20
+          }}
+        >
+          {categoryTabs}
+        </div>
+      )}
+
+      {/* 검색창 외부 클릭 시 닫기 백드롭 */}
+      {controlledShowSearch && !isFormMode && showSearchBar && (
+        <div
+          onClick={() => handleSetShowSearch(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 18
+          }}
+        />
+      )}
+
+      {/* 검색창 */}
+      {!isFormMode && showSearchBar && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: categoryTabs ? '104px' : '56px', // 카테고리 탭이 있으면 104px, 없으면 56px
+            left: 0,
+            right: 0,
+            backgroundColor: 'white',
             borderBottom: '1px solid #e5e7eb',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            zIndex: 999,
+            zIndex: 19,
             padding: controlledShowSearch ? '8px 12px' : '0',
             maxHeight: controlledShowSearch ? '300px' : '0',
             overflow: 'hidden',
@@ -252,6 +293,7 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
               placeholder="검색..."
               value={searchValue}
               onChange={onSearchChange || (() => {})}
+              showClearButton={true}
               style={{ 
                 flex: 1,
                 fontSize: '10px',
@@ -263,10 +305,19 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
             {filterOptions && (
               <Button
                 onClick={() => {
+                  // 검색창 초기화
+                  if (onSearchChange) {
+                    onSearchChange('');
+                  }
+                  // 필터 초기화
                   if (onResetFilters) {
                     onResetFilters();
-                  } else if (onSearchChange) {
-                    onSearchChange('');
+                  }
+                  // 초기화 후 검색창 닫기
+                  if (onSearchVisibleChange) {
+                    setTimeout(() => {
+                      onSearchVisibleChange(false);
+                    }, 100);
                   }
                 }}
                 variant="secondary"
@@ -295,10 +346,21 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
       {/* 메인 콘텐츠 영역 */}
       <div 
         style={{ 
-          paddingTop: controlledShowSearch && showSearchBar ? '140px' : '56px',
-          paddingBottom: '80px',
+          position: 'absolute',
+          top: (() => {
+            let topOffset = 56; // 헤더
+            if (categoryTabs) topOffset += 48; // 카테고리 탭
+            if (controlledShowSearch && showSearchBar) topOffset += 84; // 검색창
+            return `${topOffset}px`;
+          })(),
+          left: 0,
+          right: 0,
+          bottom: '80px',
           backgroundColor: '#ffffff',
-          transition: 'padding-top 0.3s ease-out'
+          transition: 'top 0.3s ease-out',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch'
         }}
       >
         {children}

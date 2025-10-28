@@ -1,12 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import MobileLayout from '../components/MobileLayout';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
+import TastingModal from '../components/TastingModal';
+
+// 디바운스 훅
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 interface ITastingNote {
   id: string;
@@ -36,27 +54,30 @@ interface ITastingNote {
 
 const MobileTastingNotes: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [tastings, setTastings] = useState<ITastingNote[]>([]);
   const [displayedTastings, setDisplayedTastings] = useState<ITastingNote[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms 디바운스
   const [filterRating, setFilterRating] = useState('');
   const [sortBy, setSortBy] = useState('date'); // date, rating
   const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
   const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedTastingId, setSelectedTastingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = React.useCallback(async (skipLoading = false) => {
     try {
-      setLoading(true);
-      const { data, error } = await supabase
+      if (!skipLoading) {
+        setLoading(true);
+      }
+      
+      let query = supabase
         .from('tasting_notes')
         .select(`
           *,
@@ -71,9 +92,11 @@ const MobileTastingNotes: React.FC = () => {
         `)
         .order('tasting_date', { ascending: false });
 
+      const { data, error } = await query;
+
       if (error) throw error;
 
-      const formatted = data.map((item: any) => ({
+      let formatted = data.map((item: any) => ({
         id: item.id,
         purchase_id: item.purchase_id,
         tasting_date: item.tasting_date,
@@ -94,19 +117,43 @@ const MobileTastingNotes: React.FC = () => {
         whiskey: item.purchases?.whiskeys
       }));
 
+      // 전체 데이터를 저장 (검색은 클라이언트 사이드에서 처리)
       setTastings(formatted);
       setDisplayedTastings(formatted.slice(0, pageSize));
       setHasMore(formatted.length > pageSize);
     } catch (error) {
       console.error('데이터 로드 오류:', error);
     } finally {
-      setLoading(false);
+      if (!skipLoading) {
+        setLoading(false);
+        setIsInitialLoading(false);
+      }
     }
-  };
+  }, [pageSize]);
 
-  const handleRefresh = async () => {
+  // 검색어나 필터 변경 시에는 클라이언트 사이드 필터링만 사용
+  // filteredAndSortedTastings useMemo가 이미 처리하므로 재조회 불필요
+
+  const handleRefresh = useCallback(async () => {
     await loadData();
-  };
+  }, [loadData]);
+
+  // 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 목록으로 돌아왔을 때 스크롤 위치 복원
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem('tastingListScroll');
+    if (savedScroll && location.pathname === '/mobile/tasting-notes') {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(savedScroll));
+        sessionStorage.removeItem('tastingListScroll');
+      }, 150);
+    }
+  }, [location.pathname]);
 
   const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
     onRefresh: handleRefresh,
@@ -120,7 +167,7 @@ const MobileTastingNotes: React.FC = () => {
     return '#EF4444';
   };
 
-  const filteredAndSortedTastings = tastings
+  const filteredAndSortedTastings = React.useMemo(() => tastings
     .filter(item => {
       // 검색어 필터
       if (searchTerm) {
@@ -152,7 +199,7 @@ const MobileTastingNotes: React.FC = () => {
         return sortOrder === 'desc' ? b.rating - a.rating : a.rating - b.rating;
       }
       return 0;
-    });
+    }), [tastings, searchTerm, filterRating, sortBy, sortOrder]);
 
   // 필터링 및 정렬된 항목에 따라 표시할 항목 업데이트
   useEffect(() => {
@@ -161,33 +208,22 @@ const MobileTastingNotes: React.FC = () => {
     setHasMore(displayed.length < filteredAndSortedTastings.length);
   }, [filteredAndSortedTastings, page, pageSize]);
 
-  // 무한 스크롤
+  // 검색어나 필터 변경 시 페이지를 1로 리셋
   useEffect(() => {
-    const handleScroll = () => {
-      if (!containerRef.current || loading || !hasMore) return;
-      
-      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-      if (scrollTop + clientHeight >= scrollHeight - 100) {
-        setPage(prev => prev + 1);
-      }
-    };
+    setPage(1);
+  }, [searchTerm, filterRating, sortBy, sortOrder]);
 
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [loading, hasMore]);
+  // 무한 스크롤 비활성화 (더보기 버튼 사용)
 
   const handleTastingClick = (tastingId: string) => {
-    navigate(`/mobile/tasting-notes/${tastingId}`);
+    setSelectedTastingId(tastingId);
   };
 
   const handleNewTasting = () => {
     navigate('/mobile/tasting/new');
   };
 
-  if (loading) {
+  if (isInitialLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div>로딩 중...</div>
@@ -260,19 +296,29 @@ const MobileTastingNotes: React.FC = () => {
   );
 
   return (
-    <MobileLayout
-      searchValue={searchTerm}
-      onSearchChange={(value: string) => setSearchTerm(value)}
-      filterOptions={filterOptions}
-      onResetFilters={() => {
-        setSearchTerm('');
-        setFilterRating('');
-        setSortBy('date');
-        setSortOrder('desc');
-      }}
-      searchVisible={showSearch}
-      onSearchVisibleChange={setShowSearch}
-    >
+    <>
+      {/* 테이스팅 상세보기 모달 */}
+      {selectedTastingId && (
+        <TastingModal tastingId={selectedTastingId} onClose={() => setSelectedTastingId(null)} />
+      )}
+
+      <MobileLayout
+        searchValue={searchTerm}
+        onSearchChange={(value: string) => {
+          // 검색창 값을 직접 업데이트하지 않고 내부 상태로 관리
+          // 디바운스를 위해 검색어만 업데이트
+          setSearchTerm(value);
+        }}
+        filterOptions={filterOptions}
+        onResetFilters={() => {
+          setSearchTerm('');
+          setFilterRating('');
+          setSortBy('date');
+          setSortOrder('desc');
+        }}
+        searchVisible={showSearch}
+        onSearchVisibleChange={setShowSearch}
+      >
       <div 
         ref={(el) => {
           bindEvents(el);
@@ -299,6 +345,55 @@ const MobileTastingNotes: React.FC = () => {
           테이스팅 노트 ({filteredAndSortedTastings.length}개)
         </div>
 
+        {/* 필터 상태 표시 */}
+        {(searchTerm || filterRating) && (
+          <div style={{
+            position: 'sticky',
+            top: '0px',
+            zIndex: 10,
+            backgroundColor: '#FEF3C7',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #FDE68A'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', fontWeight: '600', color: '#92400E' }}>
+                🔍 필터 적용 중
+              </span>
+              {searchTerm && (
+                <span style={{ fontSize: '10px', color: '#B45309' }}>
+                  검색: {searchTerm}
+                </span>
+              )}
+              {filterRating && (
+                <span style={{ fontSize: '10px', color: '#B45309' }}>
+                  평점: {filterRating}점 이상
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setFilterRating('');
+              }}
+              style={{
+                padding: '4px 8px',
+                backgroundColor: '#92400E',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              필터 해제
+            </button>
+          </div>
+        )}
+
         {/* 목록 */}
         {filteredAndSortedTastings.length === 0 ? (
           <div style={{ padding: '40px 16px', textAlign: 'center' }}>
@@ -311,7 +406,7 @@ const MobileTastingNotes: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div ref={containerRef} style={{ backgroundColor: 'white', height: 'calc(100vh - 56px)', overflowY: 'auto' }}>
+          <div ref={containerRef} style={{ backgroundColor: 'white', height: '100%', overflowY: 'visible' }}>
             {displayedTastings.map((tasting, index) => (
               <div
                 key={tasting.id}
@@ -321,7 +416,10 @@ const MobileTastingNotes: React.FC = () => {
                   padding: '8px',
                   borderBottom: index < filteredAndSortedTastings.length - 1 ? '1px solid #E5E7EB' : 'none',
                   backgroundColor: 'white',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  animation: 'slideIn 0.4s ease-out forwards',
+                  opacity: 0,
+                  animationDelay: `${index * 0.05}s`
                 }}
               >
                 {/* 왼쪽: 이미지 */}
@@ -445,10 +543,33 @@ const MobileTastingNotes: React.FC = () => {
                 </div>
               </div>
             ))}
+            {/* 더보기 버튼 */}
+            {hasMore && displayedTastings.length > 0 && (
+              <div style={{ padding: '20px', textAlign: 'center' }}>
+                <button
+                  onClick={() => setPage(prev => prev + 1)}
+                  disabled={loading}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: '#8B4513',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.6 : 1
+                  }}
+                >
+                  {loading ? '로딩 중...' : '더보기'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
     </MobileLayout>
+    </>
   );
 };
 

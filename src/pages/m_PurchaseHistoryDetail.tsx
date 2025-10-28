@@ -135,7 +135,7 @@ const MobilePurchaseHistoryDetail: React.FC = () => {
         <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
           구매 기록을 찾을 수 없습니다
         </div>
-        <Button variant="primary" onClick={() => navigate('/mobile/purchase')}>
+        <Button variant="primary" onClick={() => navigate(-1)}>
           목록으로 돌아가기
         </Button>
       </div>
@@ -160,7 +160,7 @@ const MobilePurchaseHistoryDetail: React.FC = () => {
     <div style={{ padding: '16px', paddingBottom: '20px', backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
       {/* 상단 고정 닫기 버튼 */}
       <button
-        onClick={() => navigate('/mobile/purchase')}
+        onClick={() => navigate(-1)}
         style={{
           position: 'fixed',
           top: '80px',
@@ -185,7 +185,7 @@ const MobilePurchaseHistoryDetail: React.FC = () => {
 
       {/* 하단 고정 목록으로 버튼 */}
       <button
-        onClick={() => navigate('/mobile/purchase')}
+        onClick={() => navigate(-1)}
         style={{
           position: 'fixed',
           bottom: '20px',
@@ -656,7 +656,7 @@ const MobilePurchaseHistoryDetail: React.FC = () => {
       )}
       
       <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-        <Button variant="primary" size="sm" onClick={() => navigate('/mobile/purchase')} style={{ flex: 1, backgroundColor: '#1F2937', color: '#FFFFFF' }}>목록으로</Button>
+        <Button variant="primary" size="sm" onClick={() => navigate(-1)} style={{ flex: 1, backgroundColor: '#1F2937', color: '#FFFFFF' }}>목록으로</Button>
         <Button variant="danger" size="sm" onClick={handleDelete} style={{ flex: 1, backgroundColor: '#DC2626', color: '#FFFFFF' }}>삭제</Button>
       </div>
     </div>

@@ -42,7 +42,12 @@ const MobileHome: React.FC = () => {
     totalPurchases: 0,
     avgRating: 0
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // 전체 로딩은 false로 초기화
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingTastings, setLoadingTastings] = useState(true);
+  const [loadingTodayPicks, setLoadingTodayPicks] = useState(true);
+  const [loadingCategoryRanking, setLoadingCategoryRanking] = useState(true);
+  const [loadingRecentPurchases, setLoadingRecentPurchases] = useState(true);
   const [currentSliderIndex, setCurrentSliderIndex] = useState(0);
   const [todayPicks, setTodayPicks] = useState<any[]>([]);
   const [categoryRanking, setCategoryRanking] = useState<any[]>([]);
@@ -51,7 +56,7 @@ const MobileHome: React.FC = () => {
   const [categoryRankingMap, setCategoryRankingMap] = useState<Map<string, any[]>>(new Map());
 
   useEffect(() => {
-    loadData();
+    loadDataParallel();
   }, []);
 
   // 슬라이더 자동 전환
@@ -64,9 +69,390 @@ const MobileHome: React.FC = () => {
     }
   }, [recentTastings.length]);
 
+  // 병렬 로드 - 각 섹션을 독립적으로 로드
+  const loadDataParallel = async () => {
+    setLoading(true);
+    
+    // 모든 섹션을 병렬로 시작
+    Promise.all([
+      loadTastingsSlider(),
+      loadStats(),
+      loadTodayPicks(),
+      loadCategoryRankingData(),
+      loadRecentPurchases()
+    ]).finally(() => {
+      setLoading(false);
+    });
+  };
+
+  // 슬라이더 이미지 데이터 로드
+  const loadTastingsSlider = async () => {
+    try {
+      setLoadingTastings(true);
+      const sliderCount = Number(localStorage.getItem('home_sliderCount')) || 8;
+      
+      const { data: tastingData } = await supabase
+        .from('tasting_notes')
+        .select(`
+          id,
+          tasting_date,
+          rating,
+          notes,
+          nose,
+          palate,
+          finish,
+          purchases!inner(
+            whiskeys!inner(
+              id,
+              name,
+              brand,
+              image_url,
+              type,
+              age,
+              abv
+            )
+          )
+        `)
+        .order('tasting_date', { ascending: false })
+        .limit(sliderCount);
+
+      if (tastingData) {
+        const formatted = tastingData.map((item: any) => {
+          const purchase = Array.isArray(item.purchases) ? item.purchases[0] : item.purchases;
+          const whiskey = Array.isArray(purchase?.whiskeys) ? purchase.whiskeys[0] : purchase?.whiskeys;
+          
+          return {
+            id: item.id,
+            tasting_date: item.tasting_date,
+            rating: item.rating || 0,
+            whiskey_name: whiskey?.name || '',
+            whiskey_brand: whiskey?.brand || '',
+            whiskey_image_url: whiskey?.image_url,
+            notes: item.notes ? item.notes.substring(0, 30) : '',
+            nose: item.nose ? item.nose.split(',').slice(0, 2).join(',') : '',
+            palate: item.palate ? item.palate.split(',').slice(0, 2).join(',') : '',
+            finish: item.finish ? item.finish.split(',').slice(0, 2).join(',') : '',
+            type: whiskey?.type || '',
+            age: whiskey?.age || 0,
+            abv: whiskey?.abv || 0,
+            whiskey_id: whiskey?.id || ''
+          };
+        });
+        setRecentTastings(formatted);
+      }
+    } catch (error) {
+      console.error('슬라이더 데이터 로드 오류:', error);
+    } finally {
+      setLoadingTastings(false);
+    }
+  };
+
+  // 통계 정보 로드
+  const loadStats = async () => {
+    try {
+      setLoadingStats(true);
+      const [whiskeysCountResult, tastingsCountResult, purchasesCountResult, ratingsDataResult] = await Promise.all([
+        supabase.from('whiskeys').select('id', { count: 'exact', head: true }),
+        supabase.from('tasting_notes').select('id', { count: 'exact', head: true }),
+        supabase.from('purchases').select('id', { count: 'exact', head: true }),
+        supabase.from('tasting_notes').select('rating')
+      ]);
+
+      const avgRating = ratingsDataResult.data && ratingsDataResult.data.length > 0
+        ? ratingsDataResult.data.reduce((sum, item) => sum + (item.rating || 0), 0) / ratingsDataResult.data.length
+        : 0;
+
+      setStats({
+        totalWhiskeys: whiskeysCountResult.count || 0,
+        totalTastings: tastingsCountResult.count || 0,
+        totalPurchases: purchasesCountResult.count || 0,
+        avgRating: Math.round(avgRating * 10) / 10
+      });
+    } catch (error) {
+      console.error('통계 데이터 로드 오류:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  // 오늘의 Pick 로드
+  const loadTodayPicks = async () => {
+    try {
+      setLoadingTodayPicks(true);
+      const todayPickCount = Number(localStorage.getItem('home_todayPickCount')) || 10;
+
+      const { data: whiskeysData } = await supabase
+        .from('whiskeys')
+        .select(`
+          id,
+          name,
+          brand,
+          image_url,
+          type,
+          age,
+          abv,
+          price
+        `)
+        .not('image_url', 'is', null)
+        .limit(Math.max(todayPickCount, 10));
+
+      if (whiskeysData && whiskeysData.length > 0) {
+        const whiskeyIds = whiskeysData.map((w: any) => w.id);
+        
+        const { data: purchasesData } = await supabase
+          .from('purchases')
+          .select('id, whiskey_id')
+          .in('whiskey_id', whiskeyIds);
+
+        const purchaseIds = purchasesData?.map((p: any) => p.id).filter(Boolean) || [];
+        
+        let tastingNotesData: any[] = [];
+        if (purchaseIds.length > 0) {
+          const { data } = await supabase
+            .from('tasting_notes')
+            .select('purchase_id, rating, purchases(whiskey_id)')
+            .in('purchase_id', purchaseIds);
+          
+          tastingNotesData = data || [];
+        }
+
+        const ratingMap = new Map<string, number[]>();
+        
+        if (tastingNotesData.length > 0) {
+          tastingNotesData.forEach((note: any) => {
+            const purchase = Array.isArray(note.purchases) ? note.purchases[0] : note.purchases;
+            const whiskey_id = purchase?.whiskey_id;
+            if (whiskey_id && note.rating) {
+              if (!ratingMap.has(whiskey_id)) {
+                ratingMap.set(whiskey_id, []);
+              }
+              ratingMap.get(whiskey_id)!.push(note.rating);
+            }
+          });
+        }
+
+        const whiskeysWithRatings = whiskeysData.map((whiskey: any) => {
+          const ratings = ratingMap.get(whiskey.id) || [];
+          const avgRating = ratings.length > 0
+            ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+            : 0;
+          
+          return {
+            ...whiskey,
+            rating: avgRating
+          };
+        });
+
+        const sorted = whiskeysWithRatings
+          .filter((w: any) => w.image_url)
+          .sort((a: any, b: any) => b.rating - a.rating)
+          .slice(0, todayPickCount);
+        
+        setTodayPicks(sorted);
+      }
+    } catch (error) {
+      console.error('오늘의 Pick 로드 오류:', error);
+    } finally {
+      setLoadingTodayPicks(false);
+    }
+  };
+
+  // 카테고리 랭킹 로드
+  const loadCategoryRankingData = async () => {
+    try {
+      setLoadingCategoryRanking(true);
+      const categoryRankingCount = Number(localStorage.getItem('home_categoryRankingCount')) || 5;
+
+      const { data: categoryData } = await supabase
+        .from('whiskeys')
+        .select('type')
+        .not('type', 'is', null);
+      
+      if (categoryData) {
+        const uniqueTypes = [...new Set(categoryData.map((w: any) => w.type))].filter(Boolean);
+        const allCategories = ['전체', ...uniqueTypes];
+        setCategories(allCategories);
+        
+        const { data: whiskeysData } = await supabase
+          .from('whiskeys')
+          .select(`
+            id,
+            name,
+            brand,
+            image_url,
+            type,
+            age,
+            abv,
+            price
+          `)
+          .not('type', 'is', null);
+
+        if (whiskeysData && whiskeysData.length > 0) {
+          const whiskeyIds = whiskeysData.map((w: any) => w.id);
+          
+          const { data: purchasesData } = await supabase
+            .from('purchases')
+            .select('id, whiskey_id, final_price_krw');
+
+          const purchaseIds = purchasesData?.map((p: any) => p.id).filter(Boolean) || [];
+          
+          let tastingNotesData: any[] = [];
+          if (purchaseIds.length > 0) {
+            const { data } = await supabase
+              .from('tasting_notes')
+              .select('purchase_id, rating, purchases(whiskey_id)')
+              .in('purchase_id', purchaseIds);
+            
+            tastingNotesData = data || [];
+          }
+
+          const whiskeyMap = new Map<string, any>();
+          
+          whiskeysData.forEach((whiskey: any) => {
+            if (!whiskey.type) return;
+            
+            whiskeyMap.set(whiskey.id, {
+              ...whiskey,
+              rating: 0,
+              price_krw: whiskey.price || 0
+            });
+          });
+
+          if (purchasesData && purchasesData.length > 0) {
+            purchasesData.forEach((purchase: any) => {
+              const whiskey = whiskeyMap.get(purchase.whiskey_id);
+              if (whiskey && purchase.final_price_krw) {
+                if (whiskey.price_krw > 0) {
+                  whiskey.price_krw = (whiskey.price_krw + purchase.final_price_krw) / 2;
+                } else {
+                  whiskey.price_krw = purchase.final_price_krw;
+                }
+              }
+            });
+          }
+
+          if (tastingNotesData.length > 0) {
+            const ratingMap = new Map<string, number[]>();
+            
+            tastingNotesData.forEach((note: any) => {
+              const purchase = Array.isArray(note.purchases) ? note.purchases[0] : note.purchases;
+              const whiskey_id = purchase?.whiskey_id;
+              if (whiskey_id && note.rating) {
+                if (!ratingMap.has(whiskey_id)) {
+                  ratingMap.set(whiskey_id, []);
+                }
+                ratingMap.get(whiskey_id)!.push(note.rating);
+              }
+            });
+
+            ratingMap.forEach((ratings, whiskey_id) => {
+              const avgRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+              const whiskey = whiskeyMap.get(whiskey_id);
+              if (whiskey) {
+                whiskey.rating = avgRating;
+              }
+            });
+          }
+
+          const typeMap = new Map<string, any[]>();
+          whiskeyMap.forEach((whiskey) => {
+            if (!whiskey.type) return;
+            
+            if (!typeMap.has(whiskey.type)) {
+              typeMap.set(whiskey.type, []);
+            }
+            typeMap.get(whiskey.type)!.push(whiskey);
+          });
+
+          const rankingMap = new Map<string, any[]>();
+          
+          for (const category of allCategories) {
+            if (category === '전체') {
+              const allItems: any[] = [];
+              typeMap.forEach((items) => {
+                allItems.push(...items);
+              });
+              const sorted = allItems
+                .sort((a: any, b: any) => b.rating - a.rating)
+                .slice(0, categoryRankingCount);
+              rankingMap.set('전체', sorted);
+            } else {
+              const items = typeMap.get(category) || [];
+              const sorted = items
+                .sort((a: any, b: any) => b.rating - a.rating)
+                .slice(0, categoryRankingCount);
+              rankingMap.set(category, sorted);
+            }
+          }
+
+          setCategoryRankingMap(rankingMap);
+          const initialRanking = rankingMap.get('전체') || [];
+          setCategoryRanking(initialRanking);
+        }
+      }
+    } catch (error) {
+      console.error('카테고리 랭킹 로드 오류:', error);
+    } finally {
+      setLoadingCategoryRanking(false);
+    }
+  };
+
+  // 최근 구매 기록 로드
+  const loadRecentPurchases = async () => {
+    try {
+      setLoadingRecentPurchases(true);
+      const recentPurchaseCount = Number(localStorage.getItem('home_recentPurchaseCount')) || 5;
+
+      const { data } = await supabase
+        .from('purchases')
+        .select(`
+          id,
+          purchase_date,
+          final_price_krw,
+          purchase_location,
+          store_name,
+          whiskeys!inner(
+            name,
+            brand,
+            image_url
+          )
+        `)
+        .order('purchase_date', { ascending: false })
+        .limit(recentPurchaseCount);
+
+      if (data) {
+        const formatted = data.map((item: any) => {
+          const whiskey = Array.isArray(item.whiskeys) ? item.whiskeys[0] : item.whiskeys;
+          
+          return {
+            id: item.id,
+            purchase_date: item.purchase_date,
+            whiskey_name: whiskey?.name || '',
+            whiskey_brand: whiskey?.brand || '',
+            final_price_krw: item.final_price_krw || 0,
+            whiskey_image_url: whiskey?.image_url,
+            location: item.purchase_location || '',
+            store: item.store_name || ''
+          };
+        });
+        setRecentPurchases(formatted);
+      }
+    } catch (error) {
+      console.error('최근 구매 기록 로드 오류:', error);
+    } finally {
+      setLoadingRecentPurchases(false);
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
+
+      // 설정값 읽기
+      const sliderCount = Number(localStorage.getItem('home_sliderCount')) || 8;
+      const todayPickCount = Number(localStorage.getItem('home_todayPickCount')) || 10;
+      const categoryRankingCount = Number(localStorage.getItem('home_categoryRankingCount')) || 5;
+      const recentPurchaseCount = Number(localStorage.getItem('home_recentPurchaseCount')) || 5;
 
       // 최근 테이스팅 노트
       const { data: tastingData } = await supabase
@@ -92,7 +478,7 @@ const MobileHome: React.FC = () => {
           )
         `)
         .order('tasting_date', { ascending: false })
-        .limit(8);
+        .limit(sliderCount);
 
       if (tastingData) {
         const formatted = tastingData.map((item: any) => {
@@ -141,7 +527,7 @@ const MobileHome: React.FC = () => {
             )
           `)
           .order('purchase_date', { ascending: false })
-          .limit(5)
+          .limit(recentPurchaseCount)
       ]);
 
       // 최근 구매 기록 처리
@@ -175,7 +561,7 @@ const MobileHome: React.FC = () => {
         avgRating: Math.round(avgRating * 10) / 10
       });
 
-      // 오늘의 Pick - whiskeys 테이블에서 평점 높은 최대 10개
+      // 오늘의 Pick - whiskeys 테이블에서 평점 높은 최대 개수만큼
       const { data: whiskeysData } = await supabase
         .from('whiskeys')
         .select(`
@@ -189,7 +575,7 @@ const MobileHome: React.FC = () => {
           price
         `)
         .not('image_url', 'is', null)
-        .limit(10);
+        .limit(Math.max(todayPickCount, 10)); // 최소 10개로 조회하여 평점 계산
 
       if (whiskeysData && whiskeysData.length > 0) {
         // 위스키별 평점 계산을 위해 purchases와 tasting_notes 조회
@@ -245,7 +631,7 @@ const MobileHome: React.FC = () => {
         const sorted = whiskeysWithRatings
           .filter((w: any) => w.image_url)
           .sort((a: any, b: any) => b.rating - a.rating)
-          .slice(0, 10);
+          .slice(0, todayPickCount);
         
         setTodayPicks(sorted);
       }
@@ -276,6 +662,9 @@ const MobileHome: React.FC = () => {
 
   const loadAllCategoryRankings = async (categoryList: string[]) => {
     try {
+      // 카테고리 랭킹 개수 설정값 읽기
+      const categoryRankingCount = Number(localStorage.getItem('home_categoryRankingCount')) || 5;
+      
       // whiskeys 테이블에서 모든 위스키 가져오기
       const { data: whiskeysData } = await supabase
         .from('whiskeys')
@@ -394,13 +783,13 @@ const MobileHome: React.FC = () => {
           });
           const sorted = allItems
             .sort((a: any, b: any) => b.rating - a.rating)
-            .slice(0, 10);
+            .slice(0, categoryRankingCount);
           rankingMap.set('전체', sorted);
         } else {
           const items = typeMap.get(category) || [];
           const sorted = items
             .sort((a: any, b: any) => b.rating - a.rating)
-            .slice(0, 10);
+            .slice(0, categoryRankingCount);
           rankingMap.set(category, sorted);
         }
       }
@@ -441,19 +830,6 @@ const MobileHome: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [recentTastings.length]);
-
-  if (loading) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '60vh' 
-      }}>
-        <div style={{ fontSize: '16px' }}>⏳ 로딩 중...</div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: '0', backgroundColor: '#f9fafb', minHeight: '100vh', overflow: 'hidden' }}>
@@ -514,9 +890,15 @@ const MobileHome: React.FC = () => {
           padding: '20px 16px',
           marginBottom: '20px'
         }}>
+          {/* 로딩 중 */}
+          {loadingTastings && recentTastings.length === 0 ? (
+            <div style={{ color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <div>⏳ 슬라이더 로딩 중...</div>
+            </div>
+          ) : null}
 
           {/* 현재 위스키 정보 */}
-          {recentTastings[currentSliderIndex] && (
+          {recentTastings[currentSliderIndex] && !loadingTastings && (
             <div style={{ color: 'white', marginBottom: 'auto' }}>
               <div style={{ 
                 fontSize: '22px', 
@@ -625,46 +1007,67 @@ const MobileHome: React.FC = () => {
         marginBottom: '16px',
         padding: '0 16px'
       }}>
-        <Card style={{ 
-          padding: '12px',
-          background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-          color: 'white',
-          position: 'relative'
-        }}>
-          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>등록된 위스키</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalWhiskeys}</div>
-          <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>🥃</div>
-        </Card>
-        <Card style={{ 
-          padding: '12px',
-          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-          color: 'white',
-          position: 'relative'
-        }}>
-          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>테이스팅</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalTastings}</div>
-          <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>👅</div>
-        </Card>
-        <Card style={{ 
-          padding: '12px',
-          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-          color: 'white',
-          position: 'relative'
-        }}>
-          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>구매</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalPurchases}</div>
-          <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>💰</div>
-        </Card>
-        <Card style={{ 
-          padding: '12px',
-          background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-          color: 'white',
-          position: 'relative'
-        }}>
-          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>평점</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.avgRating}</div>
-          <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>⭐</div>
-        </Card>
+        {loadingStats ? (
+          <>
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} style={{ 
+                padding: '12px',
+                background: 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                color: '#9ca3af',
+                position: 'relative',
+                minHeight: '80px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <div style={{ fontSize: '14px' }}>⏳</div>
+              </Card>
+            ))}
+          </>
+        ) : (
+          <>
+            <Card style={{ 
+              padding: '12px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              color: 'white',
+              position: 'relative'
+            }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>등록된 위스키</div>
+              <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalWhiskeys}</div>
+              <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>🥃</div>
+            </Card>
+            <Card style={{ 
+              padding: '12px',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              position: 'relative'
+            }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>테이스팅</div>
+              <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalTastings}</div>
+              <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>👅</div>
+            </Card>
+            <Card style={{ 
+              padding: '12px',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: 'white',
+              position: 'relative'
+            }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>구매</div>
+              <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalPurchases}</div>
+              <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>💰</div>
+            </Card>
+            <Card style={{ 
+              padding: '12px',
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+              color: 'white',
+              position: 'relative'
+            }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>평점</div>
+              <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.avgRating}</div>
+              <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>⭐</div>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* 빠른 액션 */}
@@ -728,23 +1131,48 @@ const MobileHome: React.FC = () => {
       </div>
 
       {/* 오늘의 Pick */}
-      {todayPicks.length > 0 && (
-        <div style={{ marginBottom: '6px' }}>
-          <div style={{ padding: '0 16px', marginBottom: '4px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
-              오늘의 Pick Whiskey ~ 
-            </h3>
-          </div>
-          <div className="hide-scrollbar" style={{ 
-            display: 'flex', 
-            overflowX: 'auto',
-            overflowY: 'hidden',
-            padding: '0 16px',
-            gap: '12px',
-            scrollSnapType: 'x mandatory',
-            scrollBehavior: 'smooth'
-          }}>
-            {todayPicks.map((pick, index) => (
+      <div style={{ marginBottom: '6px' }}>
+        <div style={{ padding: '0 16px', marginBottom: '4px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+            오늘의 Pick Whiskey ~ 
+          </h3>
+        </div>
+        <div className="hide-scrollbar" style={{ 
+          display: 'flex', 
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          padding: '0 16px',
+          gap: '12px',
+          scrollSnapType: 'x mandatory',
+          scrollBehavior: 'smooth'
+        }}>
+          {loadingTodayPicks ? (
+            <>
+              {[1, 2, 3].map((i) => (
+                <Card 
+                  key={i}
+                  style={{ 
+                    minWidth: '140px',
+                    maxWidth: '140px',
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '200px'
+                  }}
+                >
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '14px' }}>⏳</div>
+                    <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '8px' }}>로딩 중...</div>
+                  </div>
+                </Card>
+              ))}
+            </>
+          ) : todayPicks.length > 0 ? (
+            todayPicks.map((pick, index) => (
               <Card 
                 key={pick.id}
                 style={{ 
@@ -791,10 +1219,10 @@ const MobileHome: React.FC = () => {
                   </div>
                 </div>
               </Card>
-            ))}
-          </div>
+            ))
+          ) : null}
         </div>
-      )}
+      </div>
 
       {/* 카테고리 랭킹 */}
       <div style={{ marginBottom: '20px' }}>
@@ -842,7 +1270,20 @@ const MobileHome: React.FC = () => {
             </div>
           </div>
         </div>
-        {categoryRanking.length > 0 && (
+        {loadingCategoryRanking ? (
+          <div style={{ padding: '0 16px' }}>
+            <div style={{ 
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              backgroundColor: 'white'
+            }}>
+              <div style={{ padding: '40px', textAlign: 'center' }}>
+                <div style={{ fontSize: '14px', color: '#6B7280' }}>⏳ 카테고리 랭킹 로딩 중...</div>
+              </div>
+            </div>
+          </div>
+        ) : categoryRanking.length > 0 ? (
           <div style={{ padding: '0 16px' }}>
             <div style={{ 
               display: 'flex', 
@@ -863,7 +1304,10 @@ const MobileHome: React.FC = () => {
                     borderBottom: index < categoryRanking.length - 1 ? '1px solid #e5e7eb' : 'none',
                     backgroundColor: 'white',
                     cursor: 'pointer',
-                    transition: 'background-color 0.2s'
+                    transition: 'background-color 0.2s',
+                    animation: 'slideIn 0.4s ease-out forwards',
+                    opacity: 0,
+                    animationDelay: `${index * 0.05}s`
                   }}
                   onClick={() => navigate(`/mobile/whiskeys/${whiskey.id}`)}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
@@ -931,17 +1375,17 @@ const MobileHome: React.FC = () => {
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
 
       {/* 최근 구매 */}
-      {recentPurchases.length > 0 && (
-        <div style={{ padding: '0 16px', marginBottom: '80px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
-              최근 구매
-            </h3>
+      <div style={{ padding: '0 16px', marginBottom: '80px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+            최근 구매
+          </h3>
+          {!loadingRecentPurchases && recentPurchases.length > 0 && (
             <button
               onClick={() => navigate('/mobile/purchase')}
               style={{ 
@@ -954,7 +1398,20 @@ const MobileHome: React.FC = () => {
             >
               더보기 →
             </button>
+          )}
+        </div>
+        {loadingRecentPurchases ? (
+          <div style={{ 
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            backgroundColor: 'white',
+            padding: '40px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '14px', color: '#6B7280' }}>⏳ 최근 구매 기록 로딩 중...</div>
           </div>
+        ) : recentPurchases.length > 0 ? (
           <div style={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -1034,8 +1491,8 @@ const MobileHome: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : null}
+      </div>
     </div>
   );
 };

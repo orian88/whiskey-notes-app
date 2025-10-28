@@ -112,6 +112,17 @@ input[type="range"]::-moz-range-thumb {
   }
 }
 
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes blob {
   0%, 100% {
     transform: translate(0, 0) scale(1);
@@ -160,6 +171,8 @@ body {
   background-color: #f9fafb;
   color: #111827;
   line-height: 1.6;
+  margin: 0;
+  padding: 0;
 }
 
 /* 링크 스타일 */

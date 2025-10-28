@@ -1572,9 +1572,14 @@ const WhiskeyList: React.FC = () => {
           ref={gridContainerRef}
           className="whiskey-grid-container"
         >
-          {filteredWhiskeys.map((whiskey) => (
+          {filteredWhiskeys.map((whiskey, index) => (
             <div
               key={whiskey.id}
+              style={{
+                animation: 'slideIn 0.4s ease-out forwards',
+                opacity: 0,
+                animationDelay: `${index * 0.05}s`
+              }}
               onMouseEnter={(e) => {
                 const card = e.currentTarget.querySelector('.whiskey-card') as HTMLElement;
                 if (card) {

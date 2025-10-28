@@ -297,7 +297,7 @@ const MobileTastingNotesDetail: React.FC = () => {
           <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '16px' }}>
             테이스팅 노트를 찾을 수 없습니다
           </div>
-          <Button variant="primary" onClick={() => navigate('/mobile/tasting-notes')}>
+          <Button variant="primary" onClick={() => navigate(-1)}>
             목록으로 돌아가기
           </Button>
         </div>
@@ -309,7 +309,7 @@ const MobileTastingNotesDetail: React.FC = () => {
     <MobileLayout>
       {/* 상단 고정 닫기 버튼 */}
       <button
-        onClick={() => navigate('/mobile/tasting-notes')}
+        onClick={() => navigate(-1)}
         style={{
           position: 'fixed',
           top: '80px',
@@ -334,7 +334,7 @@ const MobileTastingNotesDetail: React.FC = () => {
 
       {/* 하단 고정 목록으로 버튼 */}
       <button
-        onClick={() => navigate('/mobile/tasting-notes')}
+        onClick={() => navigate(-1)}
         style={{
           position: 'fixed',
           bottom: '20px',
@@ -844,7 +844,7 @@ const MobileTastingNotesDetail: React.FC = () => {
         <div style={{ display: 'flex', gap: '8px', marginTop: '24px' }}>
           <Button
             variant="secondary"
-            onClick={() => navigate('/mobile/tasting-notes')}
+            onClick={() => navigate(-1)}
             style={{ flex: 1, fontSize: '12px' }}
           >
             목록으로

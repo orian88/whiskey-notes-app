@@ -26,6 +26,7 @@ const MyCollection = lazy(() => import('./pages/MyCollection'));
 // 모바일 페이지
 const MobileLayout = lazy(() => import('./components/MobileLayout'));
 const MobileHome = lazy(() => import('./pages/m_MobileHome'));
+const MobileSettings = lazy(() => import('./pages/m_Settings'));
 const MobileWhiskeyList = lazy(() => import('./pages/m_WhiskeyList'));
 const MobileWhiskeyDetail = lazy(() => import('./pages/m_WhiskeyDetail'));
 const MobileWhiskeyForm = lazy(() => import('./pages/m_WhiskeyForm'));
@@ -230,7 +231,15 @@ function App() {
             path="/mobile"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileHome /></MobileLayout>
+                <MobileLayout key="mobile-home"><MobileHome /></MobileLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mobile/settings"
+            element={
+              <ProtectedRoute>
+                <MobileSettings key="mobile-settings" />
               </ProtectedRoute>
             }
           />
@@ -238,7 +247,7 @@ function App() {
             path="/mobile/whiskeys"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileWhiskeyList /></MobileLayout>
+                <MobileWhiskeyList key="mobile-whiskeys" />
               </ProtectedRoute>
             }
           />
@@ -246,7 +255,7 @@ function App() {
             path="/mobile/whiskey/:id"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileWhiskeyDetail /></MobileLayout>
+                <MobileWhiskeyDetail key="mobile-whiskey-detail" />
               </ProtectedRoute>
             }
           />
@@ -254,7 +263,7 @@ function App() {
             path="/mobile/whiskey/new"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileWhiskeyForm /></MobileLayout>
+                <MobileLayout key="mobile-whiskey-new"><MobileWhiskeyForm /></MobileLayout>
               </ProtectedRoute>
             }
           />
@@ -262,7 +271,7 @@ function App() {
             path="/mobile/whiskey/:id/edit"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileWhiskeyForm /></MobileLayout>
+                <MobileLayout key="mobile-whiskey-edit"><MobileWhiskeyForm /></MobileLayout>
               </ProtectedRoute>
             }
           />
@@ -270,7 +279,7 @@ function App() {
             path="/mobile/tasting-notes"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileTastingNotes /></MobileLayout>
+                <MobileTastingNotes />
               </ProtectedRoute>
             }
           />
@@ -278,7 +287,7 @@ function App() {
             path="/mobile/tasting-notes/:id"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileTastingNotesDetail /></MobileLayout>
+                <MobileTastingNotesDetail key="mobile-tasting-notes-detail" />
               </ProtectedRoute>
             }
           />
@@ -286,7 +295,7 @@ function App() {
             path="/mobile/tasting/new"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileTastingNotesForm /></MobileLayout>
+                <MobileTastingNotesForm key="mobile-tasting-new" />
               </ProtectedRoute>
             }
           />
@@ -294,7 +303,7 @@ function App() {
             path="/mobile/purchase"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobilePurchaseHistory /></MobileLayout>
+                <MobilePurchaseHistory />
               </ProtectedRoute>
             }
           />
@@ -302,7 +311,7 @@ function App() {
             path="/mobile/purchase/form"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobilePurchaseHistoryForm /></MobileLayout>
+                <MobilePurchaseHistoryForm key="mobile-purchase-form" />
               </ProtectedRoute>
             }
           />
@@ -310,7 +319,7 @@ function App() {
             path="/mobile/purchase/:id"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobilePurchaseHistoryDetail /></MobileLayout>
+                <MobileLayout key="mobile-purchase-detail" showSearchBar={false}><MobilePurchaseHistoryDetail /></MobileLayout>
               </ProtectedRoute>
             }
           />
@@ -318,7 +327,7 @@ function App() {
             path="/mobile/notes"
             element={
               <ProtectedRoute>
-                <MobilePersonalNotes />
+                <MobilePersonalNotes key="mobile-notes" />
               </ProtectedRoute>
             }
           />
@@ -326,7 +335,7 @@ function App() {
             path="/mobile/notes/form"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobilePersonalNotesForm /></MobileLayout>
+                <MobilePersonalNotesForm key="mobile-notes-form" />
               </ProtectedRoute>
             }
           />
@@ -334,7 +343,7 @@ function App() {
             path="/mobile/collection"
             element={
               <ProtectedRoute>
-                <MobileLayout><MobileMyCollection /></MobileLayout>
+                <MobileMyCollection key="mobile-collection" />
               </ProtectedRoute>
             }
           />
@@ -342,7 +351,7 @@ function App() {
             path="/mobile/collection/:id"
             element={
               <ProtectedRoute>
-                <MobileLayout showSearchBar={false}><MobileMyCollectionDetail /></MobileLayout>
+                <MobileLayout key="mobile-collection-detail" showSearchBar={false}><MobileMyCollectionDetail /></MobileLayout>
               </ProtectedRoute>
             }
           />

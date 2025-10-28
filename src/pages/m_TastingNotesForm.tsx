@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -37,6 +37,7 @@ interface IPurchase {
 
 const MobileTastingNotesForm: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [purchases, setPurchases] = useState<IPurchase[]>([]);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState('');
   const [tastingDate, setTastingDate] = useState(new Date().toISOString().split('T')[0]);
@@ -55,6 +56,7 @@ const MobileTastingNotesForm: React.FC = () => {
   const [fruitiness, setFruitiness] = useState(0);
   const [complexity, setComplexity] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [tastingId, setTastingId] = useState<string | null>(null);
   
   // 체크된 항목들
   const [selectedNoseOptions, setSelectedNoseOptions] = useState<string[]>([]);
@@ -66,9 +68,66 @@ const MobileTastingNotesForm: React.FC = () => {
   // 위스키 선택 여부에 따른 비활성화 상태
   const isDisabled = !selectedPurchaseId;
 
+  // 쿼리 파라미터에서 tastingId 가져오기
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tastingIdParam = params.get('tastingId');
+    if (tastingIdParam) {
+      setTastingId(tastingIdParam);
+    }
+  }, [location.search]);
+
   useEffect(() => {
     loadPurchases();
   }, []);
+
+  // tastingId가 있으면 수정 모드로 데이터 로드
+  useEffect(() => {
+    if (tastingId) {
+      loadTastingNote();
+    }
+  }, [tastingId]);
+
+  const loadTastingNote = async () => {
+    if (!tastingId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('tasting_notes')
+        .select('*')
+        .eq('id', tastingId)
+        .single();
+
+      if (error) throw error;
+      if (!data) return;
+
+      // 데이터 설정
+      setSelectedPurchaseId(data.purchase_id || '');
+      setTastingDate(data.tasting_date || new Date().toISOString().split('T')[0]);
+      setColor(data.color || '');
+      setRating(data.rating || 5);
+      setNose(data.nose || '');
+      setPalate(data.palate || '');
+      setFinish(data.finish || '');
+      setNotes(data.notes || '');
+      setAmountConsumed(data.amount_consumed || 0);
+      setNoseRating(data.nose_rating || 0);
+      setPalateRating(data.palate_rating || 0);
+      setFinishRating(data.finish_rating || 0);
+      setSweetness(data.sweetness || 0);
+      setSmokiness(data.smokiness || 0);
+      setFruitiness(data.fruitiness || 0);
+      setComplexity(data.complexity || 0);
+
+      // 체크된 항목 설정
+      if (data.nose) setSelectedNoseOptions(data.nose.split(',').map((s: string) => s.trim()));
+      if (data.palate) setSelectedPalateOptions(data.palate.split(',').map((s: string) => s.trim()));
+      if (data.finish) setSelectedFinishOptions(data.finish.split(',').map((s: string) => s.trim()));
+    } catch (error) {
+      console.error('테이스팅 노트 로드 오류:', error);
+      alert('데이터를 불러올 수 없습니다.');
+    }
+  };
 
   // 세부 평가 점수의 평균을 전체 평가값에 자동 반영
   useEffect(() => {
@@ -302,11 +361,40 @@ const MobileTastingNotesForm: React.FC = () => {
         complexity: Math.round(complexity)
       };
 
-      const { error } = await supabase
-        .from('tasting_notes')
-        .insert([submitData]);
+      // 수정 모드인 경우 UPDATE
+      if (tastingId) {
+        const { error } = await supabase
+          .from('tasting_notes')
+          .update(submitData)
+          .eq('id', tastingId);
 
-      if (error) throw error;
+        if (error) throw error;
+        
+        alert('테이스팅 노트가 수정되었습니다.');
+      } else {
+        // 새로 생성하는 경우 INSERT
+        const { error } = await supabase
+          .from('tasting_notes')
+          .insert([submitData]);
+
+        if (error) throw error;
+
+        // 처음 시음일 설정
+        const { data: purchaseData } = await supabase
+          .from('purchases')
+          .select('tasting_start_date')
+          .eq('id', selectedPurchaseId)
+          .single();
+
+        if (purchaseData && !purchaseData.tasting_start_date) {
+          await supabase
+            .from('purchases')
+            .update({ tasting_start_date: tastingDate })
+            .eq('id', selectedPurchaseId);
+        }
+
+        alert('테이스팅 노트가 추가되었습니다.');
+      }
 
       // 남은양 재계산 및 업데이트 (tasting_notes의 amount_consumed 합계 기반)
       await recalculateRemainingAmount(selectedPurchaseId);
@@ -319,21 +407,6 @@ const MobileTastingNotesForm: React.FC = () => {
           .eq('id', selectedPurchaseId);
       }
 
-      // 처음 시음일 설정
-      const { data: purchaseData } = await supabase
-        .from('purchases')
-        .select('tasting_start_date')
-        .eq('id', selectedPurchaseId)
-        .single();
-
-      if (purchaseData && !purchaseData.tasting_start_date) {
-        await supabase
-          .from('purchases')
-          .update({ tasting_start_date: tastingDate })
-          .eq('id', selectedPurchaseId);
-      }
-
-      alert('테이스팅 노트가 추가되었습니다.');
       navigate('/mobile/tasting-notes');
     } catch (error) {
       console.error('저장 오류:', error);
@@ -360,7 +433,7 @@ const MobileTastingNotesForm: React.FC = () => {
     <MobileLayout>
       <div style={{ padding: '16px', paddingBottom: '80px' }}>
         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
-          새 테이스팅 노트
+          {tastingId ? '테이스팅 노트 수정' : '새 테이스팅 노트'}
         </h2>
 
         {/* 위스키 선택 */}
@@ -391,7 +464,7 @@ const MobileTastingNotesForm: React.FC = () => {
             {/* 위스키 이미지 및 기본 정보 */}
             <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
               {selectedPurchase.whiskeys?.image_url && (
-                <div style={{ width: '120px', height: '250px', flexShrink: 0 }}>
+                <div style={{ width: '200px', height: '200px', flexShrink: 0 }}>
                   <div style={{
                     width: '100%',
                     height: '100%',

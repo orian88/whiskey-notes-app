@@ -449,7 +449,7 @@ const MyCollection: React.FC = () => {
                   padding: '16px'
                 }}
               >
-                {collectionItems.map((item) => (
+                {collectionItems.map((item, index) => (
                   <div
                     key={item.id}
                     className="collection-card"
@@ -466,7 +466,10 @@ const MyCollection: React.FC = () => {
                       flexDirection: 'column',
                       gap: '12px',
                       position: 'relative',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      animation: 'slideIn 0.4s ease-out forwards',
+                      opacity: 0,
+                      animationDelay: `${index * 0.05}s`
                     }}
                     onClick={() => setSelectedItem(item)}
                     onMouseEnter={(e) => {

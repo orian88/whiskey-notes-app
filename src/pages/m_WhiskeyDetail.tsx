@@ -262,7 +262,7 @@ const MobileWhiskeyDetail: React.FC = () => {
     <div style={{ padding: '16px', backgroundColor: 'white', minHeight: '100vh' }}>
       {/* 상단 고정 닫기 버튼 */}
       <button
-        onClick={() => navigate('/mobile/whiskeys', { state: { activeTab: sourceTab } })}
+        onClick={() => navigate(-1)}
         style={{
           position: 'fixed',
           top: '80px',
@@ -287,7 +287,7 @@ const MobileWhiskeyDetail: React.FC = () => {
 
       {/* 하단 고정 목록으로 버튼 */}
       <button
-        onClick={() => navigate('/mobile/whiskeys', { state: { activeTab: sourceTab } })}
+        onClick={() => navigate(-1)}
         style={{
           position: 'fixed',
           bottom: '20px',

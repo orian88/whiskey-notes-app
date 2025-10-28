@@ -20,11 +20,11 @@ const MobilePersonalNotes: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [notes, setNotes] = useState<IPersonalNote[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef(1);
-  const pageSize = 20;
+  const pageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
   
   // 검색 및 필터 상태
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,34 +32,17 @@ const MobilePersonalNotes: React.FC = () => {
   const [sortBy, setSortBy] = useState<'created_at' | 'title'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
+  const hasInitialized = useRef(false);
+  
   useEffect(() => {
-    loadData(true);
-  }, []);
-
-  // location이 변경될 때마다 데이터 새로고침
-  useEffect(() => {
-    if (location.pathname === '/mobile/notes') {
+    // 초기 로드 시에만 데이터 로드
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
       loadData(true);
     }
-  }, [location.pathname]);
+  }, []);
 
-  // 무한 스크롤
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!containerRef.current || loading || !hasMore) return;
-      
-      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-      if (scrollTop + clientHeight >= scrollHeight - 100) {
-        loadData(false);
-      }
-    };
-
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [loading, hasMore]);
+  // 무한 스크롤 비활성화 (더보기 버튼 사용)
 
   const loadData = async (reset: boolean = false) => {
     try {
@@ -181,6 +164,45 @@ const MobilePersonalNotes: React.FC = () => {
           내 노트 ({notes.length}개)
         </div>
 
+        {/* 필터 상태 표시 */}
+        {searchTerm && (
+          <div style={{
+            position: 'sticky',
+            top: '0px',
+            zIndex: 10,
+            backgroundColor: '#FEF3C7',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #FDE68A'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+              <span style={{ fontSize: '12px', fontWeight: '600', color: '#92400E' }}>
+                🔍 필터 적용 중
+              </span>
+              <span style={{ fontSize: '10px', color: '#B45309' }}>
+                검색: {searchTerm}
+              </span>
+            </div>
+            <button
+              onClick={() => setSearchTerm('')}
+              style={{
+                padding: '4px 8px',
+                backgroundColor: '#92400E',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              필터 해제
+            </button>
+          </div>
+        )}
+
         <PullToRefreshIndicator
           isPulling={isPulling}
           isRefreshing={isRefreshing}
@@ -195,7 +217,7 @@ const MobilePersonalNotes: React.FC = () => {
           bindEvents(el);
           containerRef.current = el;
         }}
-        style={{ backgroundColor: '#ffffff', height: 'calc(100vh - 56px)', position: 'relative', overflowY: 'auto' }}>
+        style={{ backgroundColor: '#ffffff', height: '100%', position: 'relative', overflowY: 'visible' }}>
 
         {/* 목록 */}
       {notes.length === 0 ? (
@@ -335,9 +357,25 @@ const MobilePersonalNotes: React.FC = () => {
           로딩 중...
         </div>
       )}
-      {!hasMore && notes.length > 0 && (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#6B7280' }}>
-          모든 노트를 불러왔습니다
+      {hasMore && notes.length > 0 && (
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <button
+            onClick={() => loadData(false)}
+            disabled={loading}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#8B4513',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1
+            }}
+          >
+            {loading ? '로딩 중...' : '더보기'}
+          </button>
         </div>
       )}
       </div>

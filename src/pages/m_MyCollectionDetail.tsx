@@ -185,7 +185,7 @@ const MobileMyCollectionDetail: React.FC = () => {
         <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
           진열장 항목을 찾을 수 없습니다
         </div>
-        <Button variant="primary" onClick={() => navigate('/mobile/collection')}>
+        <Button variant="primary" onClick={() => navigate(-1)}>
           목록으로 돌아가기
         </Button>
       </div>
@@ -196,7 +196,7 @@ const MobileMyCollectionDetail: React.FC = () => {
     <div style={{ padding: '16px', paddingBottom: '80px', position: 'relative' }}>
       {/* 닫기 버튼 - 상단 고정 프레임 아래 */}
       <button
-        onClick={() => navigate('/mobile/collection')}
+        onClick={() => navigate(-1)}
         style={{
           position: 'fixed',
           top: '72px',
@@ -596,7 +596,7 @@ const MobileMyCollectionDetail: React.FC = () => {
         zIndex: 100
       }}>
         <button
-          onClick={() => navigate('/mobile/collection')}
+          onClick={() => navigate(-1)}
           style={{
             width: '100%',
             padding: '14px',
