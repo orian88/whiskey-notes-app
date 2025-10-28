@@ -3,41 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores';
 import MobileLayout from '../components/MobileLayout';
 import Button from '../components/Button';
+import { supabase } from '../lib/supabase';
+import { getCurrentExchangeRate, convertKrwToUsd } from '../utils/priceCollector';
 
 const MobileSettings: React.FC = () => {
   const navigate = useNavigate();
   const { signOut } = useAuthStore();
-  
-  // 설정 상태
-  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(() => {
-    const saved = localStorage.getItem('whiskey_autoUpdateEnabled');
-    return saved === 'true';
-  });
-  
-  const [updateFrequency, setUpdateFrequency] = useState(() => {
-    const saved = localStorage.getItem('whiskey_updateFrequency');
-    return saved || '매일';
-  });
-  
-  const [updateTime, setUpdateTime] = useState(() => {
-    const saved = localStorage.getItem('whiskey_updateTime');
-    return saved || '09:00';
-  });
-  
-  const [priceAlertEnabled, setPriceAlertEnabled] = useState(() => {
-    const saved = localStorage.getItem('whiskey_priceAlertEnabled');
-    return saved === 'true';
-  });
-  
-  const [alertThreshold, setAlertThreshold] = useState(() => {
-    const saved = localStorage.getItem('whiskey_alertThreshold');
-    return saved ? Number(saved) : 10;
-  });
-  
-  const [alertMethod, setAlertMethod] = useState(() => {
-    const saved = localStorage.getItem('whiskey_alertMethod');
-    return saved || '앱 푸시';
-  });
   
   // 목록 표시 개수 설정
   const [itemsPerPage, setItemsPerPage] = useState(() => {
@@ -66,9 +37,102 @@ const MobileSettings: React.FC = () => {
     return saved ? Number(saved) : 5;
   });
 
+  // 환율 업데이트 관련 상태
+  const [isUpdatingExchangeRate, setIsUpdatingExchangeRate] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0, currentPrice: '' });
+
   const handleLogout = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  // 환율 업데이트 함수
+  const handleUpdateExchangeRates = async () => {
+    if (!confirm('모든 위스키의 환율과 USD 가격을 업데이트하시겠습니까?\n가격이 동일한 항목은 업데이트에서 제외됩니다.')) {
+      return;
+    }
+
+    setIsUpdatingExchangeRate(true);
+    setUpdateProgress({ current: 0, total: 0, currentPrice: '' });
+
+    try {
+      // 현재 환율 조회
+      const currentRate = await getCurrentExchangeRate();
+      
+      // 모든 위스키 조회
+      const { data: whiskeys, error: fetchError } = await supabase
+        .from('whiskeys')
+        .select('id, name, price, current_price, current_price_usd')
+        .not('current_price', 'is', null);
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (!whiskeys || whiskeys.length === 0) {
+        alert('업데이트할 위스키가 없습니다.');
+        setIsUpdatingExchangeRate(false);
+        return;
+      }
+
+      setUpdateProgress({ current: 0, total: whiskeys.length, currentPrice: '' });
+
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      // 각 위스키를 순차적으로 업데이트
+      for (let i = 0; i < whiskeys.length; i++) {
+        const whiskey = whiskeys[i];
+        setUpdateProgress({ 
+          current: i + 1, 
+          total: whiskeys.length, 
+          currentPrice: whiskey.name 
+        });
+
+        // 현재 가격 확인
+        const currentPrice = whiskey.current_price || whiskey.price || 0;
+        
+        if (currentPrice === 0) {
+          skippedCount++;
+          continue;
+        }
+
+        // 새로운 USD 가격 계산
+        const newPriceUsd = convertKrwToUsd(currentPrice, currentRate);
+
+        // 기존 USD 가격과 동일한지 확인 (소수점 2자리까지)
+        const existingPriceUsd = whiskey.current_price_usd || 0;
+        const priceDifference = Math.abs(newPriceUsd - existingPriceUsd);
+
+        // 가격이 동일한 경우 (차이가 0.01 미만) 제외
+        if (priceDifference < 0.01) {
+          skippedCount++;
+          continue;
+        }
+
+        // whiskeys 테이블 업데이트
+        const { error: updateError } = await supabase
+          .from('whiskeys')
+          .update({
+            current_price_usd: newPriceUsd,
+            exchange_rate: currentRate,
+            last_price_update: new Date().toISOString()
+          })
+          .eq('id', whiskey.id);
+
+        if (!updateError) {
+          updatedCount++;
+        }
+      }
+
+      alert(`환율 업데이트 완료!\n\n업데이트: ${updatedCount}개\n제외: ${skippedCount}개\n현재 환율: ${currentRate.toFixed(2)} KRW/USD`);
+    } catch (error) {
+      console.error('환율 업데이트 오류:', error);
+      alert('환율 업데이트에 실패했습니다.');
+    } finally {
+      setIsUpdatingExchangeRate(false);
+      setUpdateProgress({ current: 0, total: 0, currentPrice: '' });
+    }
   };
 
   return (
@@ -245,134 +309,48 @@ const MobileSettings: React.FC = () => {
           </div>
         </div>
 
-        {/* 자동 가격 업데이트 */}
+        {/* 환율 업데이트 */}
         <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '8px', marginBottom: '16px', border: '1px solid #E5E7EB' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>⏰ 자동 업데이트</h3>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div>
-              <div style={{ fontWeight: '600', marginBottom: '4px' }}>자동 업데이트</div>
-              <div style={{ fontSize: '12px', color: '#6B7280' }}>정기적으로 가격을 자동으로 업데이트</div>
-            </div>
-            <input 
-              type="checkbox" 
-              checked={autoUpdateEnabled}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setAutoUpdateEnabled(checked);
-                localStorage.setItem('whiskey_autoUpdateEnabled', String(checked));
-              }}
-            />
-          </div>
-          {autoUpdateEnabled && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px', display: 'block' }}>빈도</label>
-                <select 
-                  value={updateFrequency}
-                  onChange={(e) => {
-                    setUpdateFrequency(e.target.value);
-                    localStorage.setItem('whiskey_updateFrequency', e.target.value);
-                  }}
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px', 
-                    border: '1px solid #D1D5DB', 
-                    borderRadius: '6px', 
-                    fontSize: '12px',
-                    backgroundColor: 'white'
-                  }}
-                >
-                  <option>매일</option>
-                  <option>매주</option>
-                  <option>매월</option>
-                </select>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>💰 환율 & USD 가격 업데이트</h3>
+          
+          {isUpdatingExchangeRate && (
+            <div style={{ 
+              padding: '12px', 
+              backgroundColor: '#EFF6FF', 
+              borderRadius: '6px', 
+              marginBottom: '12px',
+              fontSize: '12px',
+              color: '#1E40AF'
+            }}>
+              <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                업데이트 중... ({updateProgress.current}/{updateProgress.total})
               </div>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px', display: 'block' }}>시간</label>
-                <input 
-                  type="time" 
-                  value={updateTime}
-                  onChange={(e) => {
-                    setUpdateTime(e.target.value);
-                    localStorage.setItem('whiskey_updateTime', e.target.value);
-                  }}
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px', 
-                    border: '1px solid #D1D5DB', 
-                    borderRadius: '6px', 
-                    fontSize: '12px',
-                    backgroundColor: 'white'
-                  }} 
-                />
+              <div style={{ fontSize: '11px', color: '#3B82F6' }}>
+                {updateProgress.currentPrice}
               </div>
             </div>
           )}
-        </div>
 
-        {/* 가격 변동 알림 */}
-        <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '8px', marginBottom: '16px', border: '1px solid #E5E7EB' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>🔔 알림 설정</h3>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div>
-              <div style={{ fontWeight: '600', marginBottom: '4px' }}>가격 변동 알림</div>
-              <div style={{ fontSize: '12px', color: '#6B7280' }}>가격 변동 시 알림</div>
-            </div>
-            <input 
-              type="checkbox" 
-              checked={priceAlertEnabled}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setPriceAlertEnabled(checked);
-                localStorage.setItem('whiskey_priceAlertEnabled', String(checked));
-              }}
-            />
+          <Button 
+            onClick={handleUpdateExchangeRates}
+            disabled={isUpdatingExchangeRate}
+            variant={isUpdatingExchangeRate ? "secondary" : "primary"}
+            style={{ 
+              width: '100%',
+              fontSize: '14px',
+              fontWeight: '600',
+              opacity: isUpdatingExchangeRate ? 0.6 : 1
+            }}
+          >
+            {isUpdatingExchangeRate ? '환율 업데이트 중...' : '환율 & USD 가격 업데이트'}
+          </Button>
+
+          <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '8px', padding: '8px', backgroundColor: '#FEF3C7', borderRadius: '6px', border: '1px solid #FDE68A' }}>
+            <div style={{ marginBottom: '4px', fontWeight: '600' }}>📌 업데이트 규칙</div>
+            <div>• 모든 위스키의 환율과 USD 가격을 최신 환율로 업데이트합니다</div>
+            <div>• 기존 USD 가격과 동일한 항목은 업데이트에서 제외됩니다</div>
+            <div>• 현재 가격이 없는 항목은 제외됩니다</div>
           </div>
-          {priceAlertEnabled && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px', display: 'block' }}>임계값 (%)</label>
-                <input 
-                  type="number" 
-                  value={alertThreshold}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    setAlertThreshold(value);
-                    localStorage.setItem('whiskey_alertThreshold', String(value));
-                  }}
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px', 
-                    border: '1px solid #D1D5DB', 
-                    borderRadius: '6px', 
-                    fontSize: '12px',
-                    backgroundColor: 'white'
-                  }} 
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px', display: 'block' }}>방법</label>
-                <select 
-                  value={alertMethod}
-                  onChange={(e) => {
-                    setAlertMethod(e.target.value);
-                    localStorage.setItem('whiskey_alertMethod', e.target.value);
-                  }}
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px', 
-                    border: '1px solid #D1D5DB', 
-                    borderRadius: '6px', 
-                    fontSize: '12px',
-                    backgroundColor: 'white'
-                  }}
-                >
-                  <option>앱 푸시</option>
-                  <option>이메일</option>
-                </select>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* 계정 관리 */}

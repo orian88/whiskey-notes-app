@@ -3,14 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores';
 import Input from '../components/Input';
 import Button from '../components/Button';
+import { saveDevicePreference, getDevicePreference } from '../utils/deviceDetector';
+import { getAppVersion } from '../utils/version';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [selectedView, setSelectedView] = useState<'mobile' | 'desktop'>('mobile');
   
   const { user, signIn, loading, checkAuth } = useAuthStore();
   const navigate = useNavigate();
+
+  // 저장된 선호도를 확인하여 초기값 설정
+  useEffect(() => {
+    const savedPreference = getDevicePreference();
+    if (savedPreference) {
+      setSelectedView(savedPreference);
+    }
+  }, []);
 
   useEffect(() => {
     checkAuth();
@@ -26,10 +37,16 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
+    // 선택한 디바이스 선호도를 저장
+    saveDevicePreference(selectedView);
+
     const result = await signIn(email, password);
     
     if (result.error) {
       setError(result.error);
+    } else {
+      // 로그인 성공 (result.error가 null이면 성공)
+      navigate(selectedView === 'mobile' ? '/mobile' : '/dashboard');
     }
   };
 
@@ -156,7 +173,50 @@ const LoginPage: React.FC = () => {
                  />
                </div>
 
-               <div style={{ width: '100%', maxWidth: '400px', marginTop: '8px' }}>
+               {/* 버전 선택 UI */}
+               <div style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }}>
+                 <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px', display: 'block' }}>
+                   접속 버전 선택
+                 </label>
+                 <div style={{ display: 'flex', gap: '8px', border: '2px solid #d97706', borderRadius: '12px', overflow: 'hidden' }}>
+                   <button
+                     type="button"
+                     onClick={() => setSelectedView('mobile')}
+                     style={{
+                       flex: 1,
+                       padding: '12px',
+                       backgroundColor: selectedView === 'mobile' ? '#d97706' : 'white',
+                       color: selectedView === 'mobile' ? 'white' : '#d97706',
+                       border: 'none',
+                       cursor: 'pointer',
+                       fontWeight: '600',
+                       transition: 'all 0.2s',
+                       fontSize: '14px'
+                     }}
+                   >
+                     📱 모바일
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setSelectedView('desktop')}
+                     style={{
+                       flex: 1,
+                       padding: '12px',
+                       backgroundColor: selectedView === 'desktop' ? '#d97706' : 'white',
+                       color: selectedView === 'desktop' ? 'white' : '#d97706',
+                       border: 'none',
+                       cursor: 'pointer',
+                       fontWeight: '600',
+                       transition: 'all 0.2s',
+                       fontSize: '14px'
+                     }}
+                   >
+                     💻 데스크톱
+                   </button>
+                 </div>
+               </div>
+
+               <div style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }}>
                  <Button
                    type="submit"
                    disabled={loading}
@@ -175,6 +235,9 @@ const LoginPage: React.FC = () => {
          <div style={{ paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
            <p style={{ fontSize: '14px', color: '#6b7280' }}>
              개인용 위스키 테이스팅 노트 앱
+           </p>
+           <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
+             버전 v{getAppVersion()}
            </p>
          </div>
        </div>

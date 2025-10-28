@@ -8,6 +8,7 @@ import MobileLayout from '../components/MobileLayout';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 import PurchaseModal from '../components/PurchaseModal';
+import SwipeableCard from '../components/SwipeableCard';
 
 // 디바운스 훅
 const useDebounce = (value: string, delay: number) => {
@@ -120,6 +121,34 @@ const MobilePurchaseHistory: React.FC = () => {
   const handleRefresh = useCallback(async () => {
     await loadData();
   }, [loadData]);
+
+  // 삭제 핸들러
+  const handleDeletePurchase = useCallback(async (purchaseId: string) => {
+    if (!confirm('이 구매 기록을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('purchases')
+        .delete()
+        .eq('id', purchaseId);
+
+      if (error) throw error;
+
+      // 목록에서 제거
+      setPurchases(prev => prev.filter(p => p.id !== purchaseId));
+      alert('삭제되었습니다.');
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      alert('삭제에 실패했습니다.');
+    }
+  }, []);
+
+  // 수정 핸들러
+  const handleEditPurchase = useCallback((purchaseId: string) => {
+    navigate(`/mobile/purchase/${purchaseId}`);
+  }, [navigate]);
 
   // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
@@ -408,23 +437,30 @@ const MobilePurchaseHistory: React.FC = () => {
           </Button>
         </div>
       ) : (
-        <div ref={containerRef} style={{ backgroundColor: 'white', padding: '8px', gap: '0px', height: '100%', overflowY: 'visible' }}>
+        <div ref={containerRef} style={{ backgroundColor: 'white', padding: '4px', gap: '4px', height: '100%', overflowY: 'visible' }}>
           {displayedPurchases.map((purchase, index) => (
-            <div
+            <SwipeableCard
               key={purchase.id}
-              onClick={() => setSelectedPurchaseId(purchase.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '12px',
-                borderBottom: index < filteredAndSortedPurchases.length - 1 ? '1px solid #E5E7EB' : 'none',
-                backgroundColor: 'white',
-                cursor: 'pointer',
-                animation: 'slideIn 0.4s ease-out forwards',
-                opacity: 0,
-                animationDelay: `${index * 0.05}s`
-              }}
+              onEdit={() => handleEditPurchase(purchase.id)}
+              onDelete={() => handleDeletePurchase(purchase.id)}
+              editLabel="수정"
+              deleteLabel="삭제"
+              style={{ marginBottom: '4px', backgroundColor: 'white', borderRadius: '8px' }}
             >
+              <div
+                onClick={() => setSelectedPurchaseId(purchase.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '12px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  animation: 'slideIn 0.4s ease-out forwards',
+                  opacity: 0,
+                  animationDelay: `${index * 0.05}s`,
+                  minHeight: '100px'
+                }}
+              >
               {/* 왼쪽: 이미지 */}
               <div style={{
                 width: '80px',
@@ -525,7 +561,7 @@ const MobilePurchaseHistory: React.FC = () => {
                   )}
                 </div>
               </div>
-            </div>
+            </SwipeableCard>
           ))}
           {/* 더보기 버튼 */}
           {hasMore && displayedPurchases.length > 0 && (

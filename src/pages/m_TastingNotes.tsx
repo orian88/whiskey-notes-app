@@ -8,6 +8,7 @@ import MobileLayout from '../components/MobileLayout';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 import TastingModal from '../components/TastingModal';
+import SwipeableCard from '../components/SwipeableCard';
 
 // 디바운스 훅
 const useDebounce = (value: string, delay: number) => {
@@ -223,6 +224,35 @@ const MobileTastingNotes: React.FC = () => {
     navigate('/mobile/tasting/new');
   };
 
+  // 삭제 핸들러
+  const handleDeleteTasting = useCallback(async (tastingId: string) => {
+    if (!confirm('이 테이스팅 노트를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('tasting_notes')
+        .delete()
+        .eq('id', tastingId);
+
+      if (error) throw error;
+
+      // 목록에서 제거
+      setTastings(prev => prev.filter(t => t.id !== tastingId));
+      setDisplayedTastings(prev => prev.filter(t => t.id !== tastingId));
+      alert('삭제되었습니다.');
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      alert('삭제에 실패했습니다.');
+    }
+  }, []);
+
+  // 수정 핸들러
+  const handleEditTasting = useCallback((tastingId: string) => {
+    navigate(`/mobile/tasting-notes/${tastingId}`);
+  }, [navigate]);
+
   if (isInitialLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -406,22 +436,29 @@ const MobileTastingNotes: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div ref={containerRef} style={{ backgroundColor: 'white', height: '100%', overflowY: 'visible' }}>
+          <div ref={containerRef} style={{ backgroundColor: 'white', height: '100%', overflowY: 'visible', padding: '4px', gap: '4px' }}>
             {displayedTastings.map((tasting, index) => (
-              <div
+              <SwipeableCard
                 key={tasting.id}
-                onClick={() => handleTastingClick(tasting.id)}
-                style={{
-                  display: 'flex',
-                  padding: '8px',
-                  borderBottom: index < filteredAndSortedTastings.length - 1 ? '1px solid #E5E7EB' : 'none',
-                  backgroundColor: 'white',
-                  cursor: 'pointer',
-                  animation: 'slideIn 0.4s ease-out forwards',
-                  opacity: 0,
-                  animationDelay: `${index * 0.05}s`
-                }}
+                onEdit={() => handleEditTasting(tasting.id)}
+                onDelete={() => handleDeleteTasting(tasting.id)}
+                editLabel="수정"
+                deleteLabel="삭제"
+                style={{ marginBottom: '4px', backgroundColor: 'white', borderRadius: '8px' }}
               >
+                <div
+                  onClick={() => handleTastingClick(tasting.id)}
+                  style={{
+                    display: 'flex',
+                    padding: '8px',
+                    backgroundColor: 'white',
+                    cursor: 'pointer',
+                    animation: 'slideIn 0.4s ease-out forwards',
+                    opacity: 0,
+                    animationDelay: `${index * 0.05}s`,
+                    minHeight: '100px'
+                  }}
+                >
                 {/* 왼쪽: 이미지 */}
                 <div style={{
                   width: '100px',
@@ -542,6 +579,7 @@ const MobileTastingNotes: React.FC = () => {
                   )}
                 </div>
               </div>
+                </SwipeableCard>
             ))}
             {/* 더보기 버튼 */}
             {hasMore && displayedTastings.length > 0 && (

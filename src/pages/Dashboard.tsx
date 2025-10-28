@@ -6,6 +6,7 @@ import SupabaseTest from '../components/SupabaseTest';
 import Waitform from '../components/Waitform';
 import { supabase } from '../lib/supabase';
 import type { ITastingNote } from '../types/index';
+import { getAppVersion } from '../utils/version';
 
 const Dashboard: React.FC = () => {
   const { whiskeys, fetchWhiskeys, loading: whiskeysLoading } = useWhiskeyStore();
@@ -141,9 +142,21 @@ const Dashboard: React.FC = () => {
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem' }}>
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>
-        <img src="/img/main/Finish.png" alt="환영" style={{ width: '48px', height: '48px', display: 'inline-block', alignItems: 'center', verticalAlign: 'left' }} /> 환영합니다! 
-        </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
+            <img src="/img/main/Finish.png" alt="환영" style={{ width: '48px', height: '48px', display: 'inline-block', alignItems: 'center', verticalAlign: 'left' }} /> 환영합니다! 
+          </h1>
+          <div style={{ 
+            fontSize: '0.875rem', 
+            color: '#9ca3af',
+            backgroundColor: '#f3f4f6',
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontWeight: '500'
+          }}>
+            v{getAppVersion()}
+          </div>
+        </div>
         <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
           위스키 노트 앱에 오신 것을 환영합니다. 여기서 위스키 정보를 관리하고 테이스팅 노트를 작성할 수 있습니다.
         </p>

@@ -5,6 +5,7 @@ import MobileLayout from '../components/MobileLayout';
 import Button from '../components/Button';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
+import SwipeableCard from '../components/SwipeableCard';
 
 interface IPersonalNote {
   id: string;
@@ -116,6 +117,34 @@ const MobilePersonalNotes: React.FC = () => {
   const handleRefresh = useCallback(async () => {
     await loadData(true);
   }, []);
+
+  // 삭제 핸들러
+  const handleDeleteNote = useCallback(async (noteId: string) => {
+    if (!confirm('이 노트를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('personal_notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (error) throw error;
+
+      // 목록에서 제거
+      setNotes(prev => prev.filter(n => n.id !== noteId));
+      alert('삭제되었습니다.');
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      alert('삭제에 실패했습니다.');
+    }
+  }, []);
+
+  // 수정 핸들러
+  const handleEditNote = useCallback((noteId: string) => {
+    navigate(`/mobile/notes/${noteId}`);
+  }, [navigate]);
 
   const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
     onRefresh: handleRefresh,
@@ -231,17 +260,23 @@ const MobilePersonalNotes: React.FC = () => {
           </Button>
         </div>
       ) : (
-        <div style={{ backgroundColor: 'white', padding: '16px', gap: '0px' }}>
+        <div style={{ backgroundColor: 'white', padding: '4px', gap: '4px' }}>
           {notes.map((note, index) => (
-            <div
+            <SwipeableCard
               key={note.id}
-              style={{
-                display: 'flex',
-                padding: '12px',
-                borderBottom: index < notes.length - 1 ? '1px solid #E5E7EB' : 'none',
-                backgroundColor: 'white'
-              }}
+              onEdit={() => handleEditNote(note.id)}
+              onDelete={() => handleDeleteNote(note.id)}
+              editLabel="수정"
+              deleteLabel="삭제"
+              style={{ marginBottom: '4px', backgroundColor: 'white', borderRadius: '8px' }}
             >
+              <div
+                style={{
+                  display: 'flex',
+                  padding: '12px',
+                  backgroundColor: 'white'
+                }}
+              >
               {/* 왼쪽: 아이콘 */}
               <div style={{
                 width: '40px',
@@ -348,7 +383,8 @@ const MobilePersonalNotes: React.FC = () => {
                   )}
                 </div>
               </div>
-            </div>
+              </div>
+            </SwipeableCard>
           ))}
         </div>
       )}

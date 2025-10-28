@@ -10,6 +10,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 import { getPriceRange, getCurrentExchangeRate, convertKrwToUsd, getPriceCardColor, getPriceBorderColor } from '../utils/priceCollector';
 import WhiskeyModal from '../components/WhiskeyModal';
+import SwipeableCard from '../components/SwipeableCard';
 
 // 디바운스 훅
 const useDebounce = (value: string, delay: number) => {
@@ -314,6 +315,34 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
       setLoading(false);
     }
   }, [activeTab, searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice, pageSize]);
+
+  // 삭제 핸들러
+  const handleDeleteWhiskey = useCallback(async (id: string, name: string) => {
+    if (!confirm(`"${name}" 위스키를 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('whiskeys')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // 목록에서 제거
+      setWhiskeys(prev => prev.filter(w => w.id !== id));
+      alert('삭제되었습니다.');
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      alert('삭제에 실패했습니다.');
+    }
+  }, []);
+
+  // 수정 핸들러
+  const handleEditWhiskey = useCallback((id: string) => {
+    navigate(`/mobile/whiskey/${id}/edit`);
+  }, [navigate]);
 
   const handleRefresh = useCallback(async () => {
     if (activeTab === 'list' || activeTab === 'cart') {
@@ -949,26 +978,30 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
           </div>
         </div>
       ) : (
-        <div style={{ backgroundColor: 'white', padding: '6px', gap: '0px' }}>
+        <div style={{ backgroundColor: 'white', padding: '6px', gap: '6px' }}>
           {filteredWhiskeys.map((whiskey, index) => (
-            <div
+            <SwipeableCard
               key={`${whiskey.id}-${index}`}
-              onClick={() => handleSetSelectedWhiskeyId(whiskey.id)}
-              style={{
-                display: 'flex',
-                padding: '12px',
-                borderBottom: index < filteredWhiskeys.length - 1 ? '1px solid #E5E7EB' : 'none',
-                backgroundColor: 'white',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s',
-                animation: 'slideIn 0.4s ease-out forwards',
-                opacity: 0,
-                animationDelay: `${index * 0.05}s`
-              }}
-              onMouseDown={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}
-              onMouseUp={(e) => e.currentTarget.style.backgroundColor = 'white'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+              onEdit={() => handleEditWhiskey(whiskey.id)}
+              onDelete={() => handleDeleteWhiskey(whiskey.id, whiskey.name)}
+              editLabel="수정"
+              deleteLabel="삭제"
+              style={{ marginBottom: '6px', backgroundColor: 'white', borderRadius: '8px' }}
             >
+              <div
+                onClick={() => handleSetSelectedWhiskeyId(whiskey.id)}
+                style={{
+                  display: 'flex',
+                  padding: '12px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                  animation: 'slideIn 0.4s ease-out forwards',
+                  opacity: 0,
+                  animationDelay: `${index * 0.05}s`,
+                  minHeight: '100px'
+                }}
+              >
               {/* 왼쪽: 이미지 */}
               <div style={{
                 width: '100px',
@@ -1116,7 +1149,8 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+              </div>
+            </SwipeableCard>
           ))}
         </div>
       )}

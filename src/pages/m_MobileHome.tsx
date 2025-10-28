@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import { getAppVersion } from '../utils/version';
 
 interface IRecentTasting {
   id: string;
@@ -494,9 +495,9 @@ const MobileHome: React.FC = () => {
             whiskey_brand: whiskey?.brand || '',
             whiskey_image_url: whiskey?.image_url,
             notes: item.notes ? item.notes.substring(0, 30) : '', // notes 일부만
-            nose: item.nose ? item.nose.split(',').slice(0, 2).join(',') : '',
-            palate: item.palate ? item.palate.split(',').slice(0, 2).join(',') : '',
-            finish: item.finish ? item.finish.split(',').slice(0, 2).join(',') : '',
+            nose: item.nose ? item.nose.split(',').slice(0, 5).join(',') : '',
+            palate: item.palate ? item.palate.split(',').slice(0, 5).join(',') : '',
+            finish: item.finish ? item.finish.split(',').slice(0, 5).join(',') : '',
             type: whiskey?.type || '',
             age: whiskey?.age || 0,
             abv: whiskey?.abv || 0,
@@ -837,7 +838,7 @@ const MobileHome: React.FC = () => {
       <div style={{
         position: 'relative',
         width: '100%',
-        height: '260px',
+        height: '280px',
         backgroundColor: '#1a1410',
         overflow: 'hidden'
       }}>
@@ -875,7 +876,7 @@ const MobileHome: React.FC = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6))',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.4))',
           zIndex: 1
         }} />
 
@@ -906,36 +907,62 @@ const MobileHome: React.FC = () => {
                 marginBottom: '6px',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+                WebkitTextStroke: '1px rgba(255,255,255,0.3)'
               }}>
                 {recentTastings[currentSliderIndex].whiskey_name}
               </div>
-              <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '4px' }}>
+              <div style={{ 
+                fontSize: '13px', 
+                opacity: 0.9, 
+                marginBottom: '4px',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
+                WebkitTextStroke: '0.5px rgba(255,255,255,0.2)'
+              }}>
                 {recentTastings[currentSliderIndex].whiskey_brand} • ⭐ {recentTastings[currentSliderIndex].rating}/10
               </div>
               
               {/* Nose, Palate, Finish 표시 */}
-              <div style={{ fontSize: '10px', marginTop: '4px' }}>
+              <div style={{ fontSize: '12px', marginTop: '4px' }}>
                 {recentTastings[currentSliderIndex].nose && (
-                  <div style={{ fontSize: '10px', opacity: 0.85 }}>👃 {recentTastings[currentSliderIndex].nose}</div>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    opacity: 0.85,
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
+                    WebkitTextStroke: '0.3px rgba(255,255,255,0.2)'
+                  }}>👃 {recentTastings[currentSliderIndex].nose}</div>
                 )}
                 {recentTastings[currentSliderIndex].palate && (
-                  <div style={{ fontSize: '10px', opacity: 0.85 }}>👅 {recentTastings[currentSliderIndex].palate}</div>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    opacity: 0.85,
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.3)', 
+                    WebkitTextStroke: '0.3px rgba(255,255,255,0.2)'
+                  }}>👅 {recentTastings[currentSliderIndex].palate}</div>
                 )}
                 {recentTastings[currentSliderIndex].finish && (
-                  <div style={{ fontSize: '10px', opacity: 0.85 }}>🌊 {recentTastings[currentSliderIndex].finish}</div>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    opacity: 0.85,
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
+                    WebkitTextStroke: '0.3px rgba(255,255,255,0.2)'
+                  }}>🌊 {recentTastings[currentSliderIndex].finish}</div>
                 )}
               </div>
               
               {/* 테이스팅 메모 */}
               {recentTastings[currentSliderIndex].notes && (
                 <div style={{ 
-                  fontSize: '11px', 
-                  opacity: 0.8,
-                  marginTop: '4px',
+                  fontSize: '12px', 
+                  opacity: 0.85,
+                  marginTop: '80px',
+                  marginBottom: '8px',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
+                  WebkitTextStroke: '0.3px rgba(255,255,255,0.2)'
                 }}>
                   📝 {recentTastings[currentSliderIndex].notes}
                 </div>
@@ -1005,8 +1032,20 @@ const MobileHome: React.FC = () => {
         gap: '8px',
         marginTop: '24px',
         marginBottom: '16px',
-        padding: '0 16px'
+        padding: '0 16px',
+        position: 'relative'
       }}>
+        {/* 버전 표시 */}
+        <div style={{
+          position: 'absolute',
+          top: '-22px',
+          right: '25px',
+          fontSize: '13px',
+          color: '#9ca3af',
+          zIndex: 1
+        }}>
+          v{getAppVersion()}
+        </div>
         {loadingStats ? (
           <>
             {[1, 2, 3, 4].map((i) => (
