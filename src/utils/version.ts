@@ -6,12 +6,13 @@
  */
 
 export const APP_VERSION = '1.0.0';
+export const SW_VERSION = '9'; // Service Worker 버전 (public/sw.js와 동기화)
 
 /**
  * 앱 버전 정보를 가져옵니다.
  */
 export function getAppVersion(): string {
-  return APP_VERSION;
+  return `${APP_VERSION}-SW${SW_VERSION}`;
 }
 
 /**

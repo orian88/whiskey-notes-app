@@ -984,9 +984,9 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
               key={`${whiskey.id}-${index}`}
               onEdit={() => handleEditWhiskey(whiskey.id)}
               onDelete={() => handleDeleteWhiskey(whiskey.id, whiskey.name)}
-              editLabel="수정"
-              deleteLabel="삭제"
-              style={{ marginBottom: '6px', backgroundColor: 'white', borderRadius: '8px' }}
+                editLabel="수정"
+                deleteLabel="삭제"
+                style={{ marginBottom: '6px', backgroundColor: 'white' }}
             >
               <div
                 onClick={() => handleSetSelectedWhiskeyId(whiskey.id)}

@@ -443,9 +443,9 @@ const MobilePurchaseHistory: React.FC = () => {
               key={purchase.id}
               onEdit={() => handleEditPurchase(purchase.id)}
               onDelete={() => handleDeletePurchase(purchase.id)}
-              editLabel="수정"
-              deleteLabel="삭제"
-              style={{ marginBottom: '4px', backgroundColor: 'white', borderRadius: '8px' }}
+                editLabel="수정"
+                deleteLabel="삭제"
+                style={{ marginBottom: '4px', backgroundColor: 'white' }}
             >
               <div
                 onClick={() => setSelectedPurchaseId(purchase.id)}

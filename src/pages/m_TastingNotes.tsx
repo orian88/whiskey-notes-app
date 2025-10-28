@@ -444,7 +444,7 @@ const MobileTastingNotes: React.FC = () => {
                 onDelete={() => handleDeleteTasting(tasting.id)}
                 editLabel="수정"
                 deleteLabel="삭제"
-                style={{ marginBottom: '4px', backgroundColor: 'white', borderRadius: '8px' }}
+                style={{ marginBottom: '4px', backgroundColor: 'white' }}
               >
                 <div
                   onClick={() => handleTastingClick(tasting.id)}

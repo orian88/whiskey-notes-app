@@ -102,8 +102,8 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   };
 
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
-      {/* 버튼 영역 */}
+    <div style={{ position: 'relative', overflow: 'hidden' }}>
+      {/* 버튼 영역 - 카드가 닫혀있을 때는 오른쪽 밖에 숨어있어야 함 */}
       <div
         style={{
           position: 'absolute',
@@ -112,7 +112,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
           bottom: 0,
           width: '240px',
           display: 'flex',
-          transform: `translateX(${translateX + 120}px)`,
+          transform: translateX === 0 ? 'translateX(240px)' : `translateX(${240 + translateX}px)`,
           transition: shouldSlideBack ? 'transform 0.3s ease-out' : 'none',
           zIndex: 1
         }}
@@ -168,7 +168,6 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
           transform: `translateX(${translateX}px)`,
           transition: shouldSlideBack ? 'transform 0.3s ease-out' : 'none',
           backgroundColor: 'white',
-          borderRadius: '12px',
           ...style
         }}
       >

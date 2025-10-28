@@ -266,9 +266,9 @@ const MobilePersonalNotes: React.FC = () => {
               key={note.id}
               onEdit={() => handleEditNote(note.id)}
               onDelete={() => handleDeleteNote(note.id)}
-              editLabel="수정"
-              deleteLabel="삭제"
-              style={{ marginBottom: '4px', backgroundColor: 'white', borderRadius: '8px' }}
+                  editLabel="수정"
+                  deleteLabel="삭제"
+                  style={{ marginBottom: '4px', backgroundColor: 'white' }}
             >
               <div
                 style={{
