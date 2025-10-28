@@ -1,7 +1,7 @@
 // Service Worker for Whiskey Notes App
-const CACHE_NAME = 'whiskey-notes-v9';
-const STATIC_CACHE_NAME = 'whiskey-notes-static-v9';
-const DYNAMIC_CACHE_NAME = 'whiskey-notes-dynamic-v9';
+const CACHE_NAME = 'whiskey-notes-v10';
+const STATIC_CACHE_NAME = 'whiskey-notes-static-v10';
+const DYNAMIC_CACHE_NAME = 'whiskey-notes-dynamic-v10';
 
 // 정적 자산들 (앱의 핵심 파일들)
 const STATIC_ASSETS = [
@@ -50,7 +50,7 @@ const CACHE_FIRST_PATTERNS = [
 
 // 설치 이벤트 - 정적 자산들을 캐시에 저장
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker v9 with mobile optimizations...');
+  console.log('[SW] Installing Service Worker v10 with mobile optimizations...');
   
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME)
@@ -71,7 +71,7 @@ self.addEventListener('install', (event) => {
 
 // 활성화 이벤트 - 이전 캐시들을 정리
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v9 with mobile optimizations...');
+  console.log('[SW] Activating Service Worker v10 with mobile optimizations...');
   
   event.waitUntil(
     caches.keys()
@@ -86,7 +86,7 @@ self.addEventListener('activate', (event) => {
         );
       })
       .then(() => {
-        console.log('[SW] All old caches deleted, Service Worker v9 activated');
+        console.log('[SW] All old caches deleted, Service Worker v10 activated');
         // 모든 클라이언트에 즉시 적용
         return self.clients.claim();
       })
@@ -296,4 +296,4 @@ self.addEventListener('message', (event) => {
   }
 });
 
-console.log('[SW] Service Worker v9 script loaded');
+console.log('[SW] Service Worker v10 script loaded');
