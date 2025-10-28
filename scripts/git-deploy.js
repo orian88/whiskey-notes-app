@@ -106,7 +106,12 @@ function executeGitOperations() {
     
     // 3. 원격 저장소에 푸시
     console.log('🚀 원격 저장소에 푸시 중...');
-    execSync('git push origin main', { 
+    // 현재 브랜치 이름 동적 확인
+    const currentBranch = execSync('git branch --show-current', { 
+      encoding: 'utf8',
+      cwd: projectRoot
+    }).trim();
+    execSync(`git push origin ${currentBranch}`, { 
       cwd: projectRoot,
       stdio: 'inherit'
     });
