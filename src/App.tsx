@@ -24,22 +24,7 @@ const PersonalNotes = lazy(() => import('./pages/PersonalNotes'));
 const MyCollection = lazy(() => import('./pages/MyCollection'));
 
 // 모바일 페이지
-const MobileLayout = lazy(() => import('./components/MobileLayout'));
-const MobileHome = lazy(() => import('./pages/m_MobileHome'));
-const MobileSettings = lazy(() => import('./pages/m_Settings'));
-const MobileWhiskeyList = lazy(() => import('./pages/m_WhiskeyList'));
-const MobileWhiskeyDetail = lazy(() => import('./pages/m_WhiskeyDetail'));
-const MobileWhiskeyForm = lazy(() => import('./pages/m_WhiskeyForm'));
-const MobileTastingNotes = lazy(() => import('./pages/m_TastingNotes'));
-const MobileTastingNotesDetail = lazy(() => import('./pages/m_TastingNotesDetail'));
-const MobileTastingNotesForm = lazy(() => import('./pages/m_TastingNotesForm'));
-const MobilePurchaseHistory = lazy(() => import('./pages/m_PurchaseHistory'));
-const MobilePurchaseHistoryDetail = lazy(() => import('./pages/m_PurchaseHistoryDetail'));
-const MobilePurchaseHistoryForm = lazy(() => import('./pages/m_PurchaseHistoryForm'));
-const MobilePersonalNotes = lazy(() => import('./pages/m_PersonalNotes'));
-const MobilePersonalNotesForm = lazy(() => import('./pages/m_PersonalNotesForm'));
-const MobileMyCollection = lazy(() => import('./pages/m_MyCollection'));
-const MobileMyCollectionDetail = lazy(() => import('./pages/m_MyCollectionDetail'));
+const MobileAppContainer = lazy(() => import('./components/MobileAppContainer'));
 
 
 // 디바이스 감지 및 리다이렉트 컴포넌트
@@ -226,132 +211,12 @@ function App() {
             }
           />
           
-          {/* 모바일 페이지 라우트 */}
+          {/* 모바일 페이지 라우트 - 조건부 렌더링으로 페이지 유지 */}
           <Route
-            path="/mobile"
+            path="/mobile/*"
             element={
               <ProtectedRoute>
-                <MobileLayout key="mobile-home"><MobileHome /></MobileLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/settings"
-            element={
-              <ProtectedRoute>
-                <MobileSettings key="mobile-settings" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/whiskeys"
-            element={
-              <ProtectedRoute>
-                <MobileWhiskeyList key="mobile-whiskeys" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/whiskey/:id"
-            element={
-              <ProtectedRoute>
-                <MobileWhiskeyDetail key="mobile-whiskey-detail" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/whiskey/new"
-            element={
-              <ProtectedRoute>
-                <MobileLayout key="mobile-whiskey-new"><MobileWhiskeyForm /></MobileLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/whiskey/:id/edit"
-            element={
-              <ProtectedRoute>
-                <MobileLayout key="mobile-whiskey-edit"><MobileWhiskeyForm /></MobileLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/tasting-notes"
-            element={
-              <ProtectedRoute>
-                <MobileTastingNotes />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/tasting-notes/:id"
-            element={
-              <ProtectedRoute>
-                <MobileTastingNotesDetail key="mobile-tasting-notes-detail" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/tasting/new"
-            element={
-              <ProtectedRoute>
-                <MobileTastingNotesForm key="mobile-tasting-new" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/purchase"
-            element={
-              <ProtectedRoute>
-                <MobilePurchaseHistory />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/purchase/form"
-            element={
-              <ProtectedRoute>
-                <MobilePurchaseHistoryForm key="mobile-purchase-form" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/purchase/:id"
-            element={
-              <ProtectedRoute>
-                <MobileLayout key="mobile-purchase-detail" showSearchBar={false}><MobilePurchaseHistoryDetail /></MobileLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/notes"
-            element={
-              <ProtectedRoute>
-                <MobilePersonalNotes key="mobile-notes" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/notes/form"
-            element={
-              <ProtectedRoute>
-                <MobilePersonalNotesForm key="mobile-notes-form" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/collection"
-            element={
-              <ProtectedRoute>
-                <MobileMyCollection key="mobile-collection" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/mobile/collection/:id"
-            element={
-              <ProtectedRoute>
-                <MobileLayout key="mobile-collection-detail" showSearchBar={false}><MobileMyCollectionDetail /></MobileLayout>
+                <MobileAppContainer />
               </ProtectedRoute>
             }
           />

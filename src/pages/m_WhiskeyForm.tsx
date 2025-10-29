@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
@@ -26,10 +27,32 @@ interface IWhiskeyFormData {
   country?: string;
 }
 
-const MobileWhiskeyForm: React.FC = () => {
+interface MobileWhiskeyFormProps {
+  onClose?: () => void;
+  onSuccess?: () => void; // 저장 성공 시 호출될 콜백
+  id?: string; // 직접 전달되는 id (오버레이 방식)
+}
+
+const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSuccess, id: idProp }) => {
   const navigate = useNavigate();
-  const { id } = useParams<{ id?: string }>();
+  const { id: idParam } = useParams<{ id?: string }>();
+  // prop으로 전달된 id가 있으면 우선 사용, 없으면 useParams 사용
+  const id = idProp || idParam;
   const isEdit = Boolean(id);
+  
+  // 슬라이드 애니메이션 상태
+  const [isEntering, setIsEntering] = useState(true);
+  const [isLeaving, setIsLeaving] = useState(false);
+  
+  useEffect(() => {
+    // 마운트 시 슬라이드 인 애니메이션
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 10);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
   
   const [formData, setFormData] = useState<IWhiskeyFormData>({
     name: '',
@@ -122,12 +145,18 @@ const MobileWhiskeyForm: React.FC = () => {
 
       // 중복 체크 (신규 추가시만)
       if (!isEdit && id === undefined) {
-        const { data: existing } = await supabase
+        const { data: existingData, error: checkError } = await supabase
           .from('whiskeys')
           .select('id, name')
           .eq('name', formData.name.trim())
-          .single();
+          .maybeSingle();
 
+        // 에러가 있고 데이터도 없으면 실제 에러
+        if (checkError && checkError.code !== 'PGRST116') {
+          throw checkError;
+        }
+
+        const existing = existingData;
         if (existing) {
           const shouldUpdate = window.confirm(
             `"${existing.name}" 위스키가 이미 존재합니다.\n기존 정보를 업데이트하시겠습니까?`
@@ -142,7 +171,9 @@ const MobileWhiskeyForm: React.FC = () => {
             
             if (error) throw error;
             alert('기존 위스키 정보가 업데이트되었습니다.');
-            navigate('/mobile/whiskeys');
+            
+            // 저장 시 새로고침 (중복 업데이트 시에는 전체 새로고침)
+            window.location.href = '/mobile/whiskeys';
             return;
           }
           // 사용자가 취소하면 계속 진행 (새로 생성)
@@ -161,26 +192,68 @@ const MobileWhiskeyForm: React.FC = () => {
           throw new Error('수정된 데이터가 없습니다.');
         }
         alert('위스키 정보가 수정되었습니다.');
+        
+        // 저장 성공 시 콜백 호출 (목록 새로고침용)
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          // onSuccess가 없으면 전체 페이지 새로고침 (호환성 유지)
+          window.location.href = '/mobile/whiskeys';
+        }
+        // 오버레이 닫기
+        if (onClose) {
+          handleClose();
+        }
+        return;
       } else {
         const { data, error } = await supabase
           .from('whiskeys')
           .insert([submitData])
           .select();
         
-        if (error) throw error;
-        if (!data || data.length === 0) {
-          throw new Error('저장된 데이터가 없습니다.');
-        }
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('저장된 데이터가 없습니다.');
+      }
         alert('새 위스키가 추가되었습니다.');
       }
-
-      navigate('/mobile/whiskeys');
+      
+      // 저장 성공 시 콜백 호출 (목록 새로고침용)
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        // onSuccess가 없으면 전체 페이지 새로고침 (호환성 유지)
+        window.location.href = '/mobile/whiskeys';
+      }
+      // 오버레이 닫기
+      if (onClose) {
+        handleClose();
+      }
     } catch (error) {
-      console.error('Error saving whiskey:', error);
       alert(`저장에 실패했습니다: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      // props로 전달된 onClose가 있으면 사용 (오버레이로 열린 경우)
+      // onClose가 없으면 직접 URL 접근한 경우이므로 navigate (상세보기와 동일)
+      if (onClose) {
+        onClose();
+      } else {
+        // 직접 URL로 접근한 경우에만 navigate (replace로 새로고침 방지)
+        navigate('/mobile/whiskeys', { replace: true });
+      }
+    }, 300);
+  };
+
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)'; // 오른쪽으로 슬라이드 아웃
+    if (isEntering) return 'translateX(100%)'; // 처음엔 오른쪽에 위치
+    return 'translateX(0)'; // 중앙 위치
   };
 
   const handleInputChange = (field: keyof IWhiskeyFormData, value: string | number | undefined) => {
@@ -251,8 +324,43 @@ const MobileWhiskeyForm: React.FC = () => {
     'Irish', 'Japanese', 'Cognac', 'Brandy', 'Rum', '기타'
   ];
 
-  return (
-    <div style={{ padding: '16px', backgroundColor: 'white', minHeight: '100vh' }}>
+  const content = (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 100000, // 상세보기(99999)보다 위에 표시
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch'
+      }}
+    >
+      {/* Fixed Header */}
+      <header 
+        style={{ 
+          position: 'sticky', top: 0, left: 0, right: 0, height: '56px',
+          backgroundColor: 'white', borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)', zIndex: 1001,
+          display: 'flex', alignItems: 'center', padding: '0 16px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <button onClick={handleClose} style={{ 
+            background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', padding: '4px' 
+          }}>←</button>
+          <div style={{ flex: 1, fontSize: '18px', fontWeight: 600, color: '#1f2937', textAlign: 'center' }}>
+            {isEdit ? '위스키 수정' : '위스키 추가'}
+          </div>
+          <div style={{ width: '32px' }}></div>
+        </div>
+      </header>
+      
+      <div style={{ padding: '16px' }}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
         {/* 크롤링 기능 (새 글 등록 시에만) */}
@@ -264,7 +372,7 @@ const MobileWhiskeyForm: React.FC = () => {
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <Input
                 type="url"
-                placeholder="https://dailyshot.co.kr/whiskey/..."
+                placeholder="https://dailyshot.co/whiskey/..."
                 value={crawlUrl}
                 onChange={(value) => setCrawlUrl(value)}
                 style={{ flex: 1 }}
@@ -548,7 +656,7 @@ const MobileWhiskeyForm: React.FC = () => {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/mobile/whiskeys')}
+            onClick={handleClose}
             disabled={loading}
             style={{ flex: 1 }}
           >
@@ -563,8 +671,14 @@ const MobileWhiskeyForm: React.FC = () => {
           </Button>
         </div>
       </form>
+      </div>
     </div>
   );
+
+  // Portal을 사용하여 body에 직접 렌더링 (최상위 레이어 보장)
+  return typeof document !== 'undefined' 
+    ? createPortal(content, document.body)
+    : content;
 };
 
 export default MobileWhiskeyForm;

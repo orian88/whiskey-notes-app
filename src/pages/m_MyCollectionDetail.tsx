@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
@@ -46,11 +47,46 @@ interface ICollectionDetail {
   };
 }
 
-const MobileMyCollectionDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface MobileMyCollectionDetailProps {
+  id?: string;
+  onClose?: () => void;
+}
+
+const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id: propId, onClose }) => {
+  const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const id = propId || paramId;
   const [collection, setCollection] = useState<ICollectionDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // 슬라이드 애니메이션 상태
+  const [isEntering, setIsEntering] = useState(true);
+  const [isLeaving, setIsLeaving] = useState(false);
+  
+  useEffect(() => {
+    // 마운트 시 슬라이드 인 애니메이션
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 10);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)';
+    if (isEntering) return 'translateX(100%)';
+    return 'translateX(0)';
+  };
+  
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      if (onClose) {
+        onClose();
+      } else {
+        navigate(-1);
+      }
+    }, 300);
+  };
 
   useEffect(() => {
     if (id) {
@@ -170,55 +206,116 @@ const MobileMyCollectionDetail: React.FC = () => {
     return new Intl.NumberFormat('ko-KR').format(price);
   };
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div>로딩 중...</div>
-      </div>
-    );
-  }
+  // 로딩 오버레이 (상세보기 내용보다 위에 표시)
+  const loadingOverlay = loading ? (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      zIndex: 100000,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      pointerEvents: 'auto'
+    }}>
+      <div style={{
+        fontSize: '16px',
+        color: '#6B7280',
+        fontWeight: 500
+      }}>로딩 중...</div>
+    </div>
+  ) : null;
 
-  if (!collection) {
-    return (
-      <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+  // collection이 없고 로딩도 아닐 때
+  if (!collection && !loading) {
+    const noCollectionContent = (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white',
+          zIndex: 99999,
+          transition: 'transform 0.3s ease-out',
+          transform: getSlideTransform(),
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '40px 16px',
+          textAlign: 'center'
+        }}
+      >
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏛️</div>
         <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
           진열장 항목을 찾을 수 없습니다
         </div>
-        <Button variant="primary" onClick={() => navigate(-1)}>
-          목록으로 돌아가기
+        <Button variant="primary" onClick={handleClose}>
+          목록으로
         </Button>
       </div>
     );
+    return typeof document !== 'undefined' 
+      ? createPortal(noCollectionContent, document.body)
+      : noCollectionContent;
   }
 
-  return (
-    <div style={{ padding: '16px', paddingBottom: '80px', position: 'relative' }}>
-      {/* 닫기 버튼 - 상단 고정 프레임 아래 */}
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          position: 'fixed',
-          top: '72px',
-          right: '16px',
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          border: 'none',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          fontSize: '20px',
-          fontWeight: 'bold',
-          zIndex: 100,
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+  // 로딩 중이면 오버레이만 표시하고 content는 렌더링하지 않음
+  if (loading) {
+    return typeof document !== 'undefined' 
+      ? createPortal(loadingOverlay, document.body)
+      : loadingOverlay;
+  }
+
+  // loading이 false이고 collection이 없으면 이미 return했으므로, 여기서는 collection이 반드시 존재
+  if (!collection) return null;
+
+  const content = (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 99999,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflow: 'hidden'
+      }}
+    >
+      {/* Fixed Header */}
+      <header 
+        style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, height: '56px',
+          backgroundColor: 'white', borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)', zIndex: 1001,
+          display: 'flex', alignItems: 'center', padding: '0 16px'
         }}
       >
-        ✕
-      </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <button onClick={handleClose} style={{ 
+            background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', padding: '4px' 
+          }}>←</button>
+          <div style={{ flex: 1, fontSize: '18px', fontWeight: 600, color: '#1f2937', textAlign: 'center' }}>진열장 상세</div>
+          <div style={{ width: '32px' }}></div>
+        </div>
+      </header>
+      
+      {/* Scrollable Content Area */}
+      <div style={{
+        position: 'absolute', top: '56px', left: 0, right: 0,
+        bottom: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+        padding: '16px', paddingBottom: '80px'
+      }}>
 
       {/* 위스키 이미지 및 기본 정보 */}
       <div style={{ 
@@ -586,35 +683,13 @@ const MobileMyCollectionDetail: React.FC = () => {
           })()}
         </div>
       )}
-
-      {/* 닫기 버튼 - 하단 */}
-      <div style={{
-        position: 'fixed',
-        bottom: '90px',
-        left: '16px',
-        right: '16px',
-        zIndex: 100
-      }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            width: '100%',
-            padding: '14px',
-            backgroundColor: '#8B4513',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            fontSize: '16px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            boxShadow: '0 4px 6px -1px rgba(139, 69, 19, 0.3)'
-          }}
-        >
-          닫기
-        </button>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' 
+    ? createPortal(content, document.body)
+    : content;
 };
 
 export default MobileMyCollectionDetail;

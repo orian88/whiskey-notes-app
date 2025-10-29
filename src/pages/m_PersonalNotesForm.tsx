@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
@@ -19,11 +19,17 @@ const CATEGORIES = [
   { value: '메모', label: '메모' },
   { value: '위스키', label: '위스키' },
   { value: '구매', label: '구매' },
-  { value: '공부', label: '공부' },
+  { value: '개발', label: '개발' },
   { value: '기타', label: '기타' }
 ];
 
-const MobilePersonalNotesForm: React.FC = () => {
+interface MobilePersonalNotesFormProps {
+  onClose?: () => void;
+  onSuccess?: () => void;
+  noteId?: string;
+}
+
+const MobilePersonalNotesForm: React.FC<MobilePersonalNotesFormProps> = ({ onClose, onSuccess, noteId: noteIdProp }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -33,6 +39,40 @@ const MobilePersonalNotesForm: React.FC = () => {
     category: '',
     tags: []
   });
+  
+  // 수정 모드일 때 기존 데이터 로드
+  useEffect(() => {
+    if (noteIdProp) {
+      loadNoteData(noteIdProp);
+    }
+  }, [noteIdProp]);
+  
+  const loadNoteData = async (noteId: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('personal_notes')
+        .select('*')
+        .eq('id', noteId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setFormData({
+          title: data.title || '',
+          content: data.content || '',
+          category: data.category || '',
+          tags: Array.isArray(data.tags) ? data.tags : []
+        });
+      }
+    } catch (error) {
+      console.error('노트 데이터 로드 오류:', error);
+      alert('노트 데이터를 불러올 수 없습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (field: keyof IPersonalNoteFormData, value: string | string[]) => {
     setFormData(prev => ({
@@ -80,62 +120,106 @@ const MobilePersonalNotesForm: React.FC = () => {
     try {
       setLoading(true);
 
-      // 현재 날짜를 ISO 형식으로 가져오기
-      const today = new Date().toISOString().split('T')[0];
+      if (noteIdProp) {
+        // 수정 모드
+        const { error } = await supabase
+          .from('personal_notes')
+          .update({
+            title: formData.title,
+            content: formData.content || null,
+            category: formData.category || null,
+            tags: formData.tags.length > 0 ? formData.tags : null
+          })
+          .eq('id', noteIdProp);
 
-      const { error } = await supabase
-        .from('personal_notes')
-        .insert({
-          note_date: today,
-          title: formData.title,
-          content: formData.content || null,
-          category: formData.category || null,
-          tags: formData.tags.length > 0 ? formData.tags : null
-        });
+        if (error) throw error;
 
-      if (error) throw error;
+        alert('노트가 수정되었습니다.');
+      } else {
+        // 추가 모드
+        // 현재 날짜를 ISO 형식으로 가져오기
+        const today = new Date().toISOString().split('T')[0];
 
-      alert('노트가 추가되었습니다.');
-      // 작은 딜레이 후 이동하여 상태가 완전히 정리되도록
-      setTimeout(() => {
-        navigate('/mobile/notes', { replace: false });
-      }, 100);
+        const { error } = await supabase
+          .from('personal_notes')
+          .insert({
+            note_date: today,
+            title: formData.title,
+            content: formData.content || null,
+            category: formData.category || null,
+            tags: formData.tags.length > 0 ? formData.tags : null
+          });
+
+        if (error) throw error;
+
+        alert('노트가 추가되었습니다.');
+      }
+      
+      // onSuccess가 있으면 호출하고 navigate는 하지 않음 (오버레이 방식)
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        // 작은 딜레이 후 이동하여 상태가 완전히 정리되도록
+        setTimeout(() => {
+          navigate('/mobile/notes', { replace: false });
+        }, 100);
+      }
     } catch (error) {
-      console.error('노트 추가 오류:', error);
-      alert('노트 추가에 실패했습니다.');
+      console.error('노트 저장 오류:', error);
+      alert(noteIdProp ? '노트 수정에 실패했습니다.' : '노트 추가에 실패했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <MobileLayout>
-      <div style={{ padding: '16px', paddingBottom: '80px' }}>
-        <div style={{ marginBottom: '16px' }}>
-          <button
-            onClick={() => navigate('/mobile/notes')}
-            style={{
-              backgroundColor: 'white',
-              border: '1px solid #E5E7EB',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#1F2937',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+    <div style={{ 
+      minHeight: '100vh', 
+      backgroundColor: '#F9FAFB',
+      paddingBottom: '20px'
+    }}>
+      {/* Fixed Header */}
+      <header 
+        style={{ 
+          position: 'sticky', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          height: '56px',
+          backgroundColor: 'white', 
+          borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)', 
+          zIndex: 10,
+          display: 'flex', 
+          alignItems: 'center', 
+          padding: '0 16px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <button 
+            onClick={onClose || (() => navigate('/mobile/notes'))} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              fontSize: '24px', 
+              cursor: 'pointer', 
+              padding: '4px' 
             }}
           >
-            <span>←</span> 목록으로
+            ←
           </button>
+          <div style={{ flex: 1, fontSize: '18px', fontWeight: 600, color: '#1f2937', textAlign: 'center' }}>
+            노트 {noteIdProp ? '수정' : '추가'}
+          </div>
+          <div style={{ width: '32px' }}></div>
         </div>
+      </header>
 
+      {/* Form Content */}
+      <div style={{ padding: '16px' }}>
         <Card style={{ padding: '16px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
-            개인 노트 추가
+            개인 노트 {noteIdProp ? '수정' : '추가'}
           </h2>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -281,19 +365,25 @@ const MobilePersonalNotesForm: React.FC = () => {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => navigate('/mobile/notes')}
+                onClick={() => {
+              if (onClose) {
+                onClose();
+              } else {
+                navigate('/mobile/notes');
+              }
+            }}
                 style={{ flex: 1 }}
               >
                 취소
               </Button>
               <Button type="submit" style={{ flex: 1 }} disabled={loading}>
-                {loading ? '추가 중...' : '추가하기'}
+                {loading ? (noteIdProp ? '수정 중...' : '추가 중...') : (noteIdProp ? '수정하기' : '추가하기')}
               </Button>
             </div>
           </form>
         </Card>
       </div>
-    </MobileLayout>
+    </div>
   );
 };
 

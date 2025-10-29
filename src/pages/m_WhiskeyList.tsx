@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Input from '../components/Input';
 import MobileLayout from '../components/MobileLayout';
 import RangeTrackbar from '../components/RangeTrackbar';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
@@ -11,6 +8,11 @@ import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 import { getPriceRange, getCurrentExchangeRate, convertKrwToUsd, getPriceCardColor, getPriceBorderColor } from '../utils/priceCollector';
 import WhiskeyModal from '../components/WhiskeyModal';
 import SwipeableCard from '../components/SwipeableCard';
+import MobileWhiskeyDetail from './m_WhiskeyDetail';
+import MobileWhiskeyForm from './m_WhiskeyForm';
+import MobileWhiskeyListTab from './m_WhiskeyListTab';
+import MobileWhiskeyCartTab from './m_WhiskeyCartTab';
+import MobileWhiskeySummaryTab from './m_WhiskeySummaryTab';
 
 // 디바운스 훅
 const useDebounce = (value: string, delay: number) => {
@@ -100,6 +102,28 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
   
   // 상위에서 전달된 함수 사용 또는 로컬 함수 사용
   const handleSetSelectedWhiskeyId = setSelectedWhiskeyIdProp || setSelectedWhiskeyId;
+  
+  // 탭별 데이터 캐시 및 탭 전환 플래그
+  const tabDataCache = useRef<{ list?: IWhiskey[], cart?: IWhiskey[] }>({});
+  const tabPageCache = useRef<{ list?: number, cart?: number }>({});
+  const tabHasMoreCache = useRef<{ list?: boolean, cart?: boolean }>({});
+  const isTabChanging = useRef(false);
+  
+  // initialMount 플래그
+  const isInitialMount = useRef(true);
+  
+  // whiskeys 데이터 변경 시 캐시 업데이트 (데이터가 로드된 후)
+  useEffect(() => {
+    if ((activeTab === 'list' || activeTab === 'cart') && whiskeys.length > 0) {
+      // 이미 캐시된 데이터와 동일한지 확인하여 무한 루프 방지
+      const cachedData = tabDataCache.current[activeTab];
+      if (!cachedData || cachedData.length !== whiskeys.length) {
+        tabDataCache.current[activeTab] = [...whiskeys]; // 새 배열로 저장 (불변성)
+        tabPageCache.current[activeTab] = pageRef.current;
+        tabHasMoreCache.current[activeTab] = hasMore;
+      }
+    }
+  }, [whiskeys.length, activeTab, hasMore]);
   
   // 가격 관리 상태
   const [priceWhiskeys, setPriceWhiskeys] = useState<IWhiskeyWithPrice[]>([]);
@@ -249,8 +273,10 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
     return '#EF4444'; // 50만원 초과 - 빨간색 (초고가)
   }, []);
 
-  const loadData = useCallback(async (reset: boolean = false) => {
+  const loadData = useCallback(async (reset: boolean = false, currentTab?: 'list' | 'cart') => {
     try {
+      const tab = currentTab || activeTab;
+      
       if (reset) {
         setLoading(true);
         pageRef.current = 1;
@@ -285,7 +311,7 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
       }
       
       // 카트 탭일 때 즐겨찾기된 위스키만 조회
-      if (activeTab === 'cart') {
+      if (tab === 'cart') {
         query = query.eq('is_favorite', true);
       }
       
@@ -310,11 +336,11 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
         setHasMore(false);
       }
     } catch (error) {
-      console.error('데이터 로드 오류:', error);
+      // 에러 처리
     } finally {
       setLoading(false);
     }
-  }, [activeTab, searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice, pageSize]);
+  }, [searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice, pageSize]);
 
   // 삭제 핸들러
   const handleDeleteWhiskey = useCallback(async (id: string, name: string) => {
@@ -334,7 +360,6 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
       setWhiskeys(prev => prev.filter(w => w.id !== id));
       alert('삭제되었습니다.');
     } catch (error) {
-      console.error('삭제 오류:', error);
       alert('삭제에 실패했습니다.');
     }
   }, []);
@@ -346,9 +371,38 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
 
   const handleRefresh = useCallback(async () => {
     if (activeTab === 'list' || activeTab === 'cart') {
-      await loadData(true);
+      await loadData(true, activeTab);
     } else {
       await loadPriceWhiskeys();
+    }
+  }, [activeTab, loadData]);
+
+  // activeTab 변경 시 캐시된 데이터 복원 또는 새로 로드
+  useEffect(() => {
+    if (activeTab === 'list' || activeTab === 'cart') {
+      // 초기 마운트가 아니고 탭이 전환된 경우
+      if (!isInitialMount.current) {
+        isTabChanging.current = true; // 탭 전환 플래그 설정
+        
+        const cachedData = tabDataCache.current[activeTab];
+        if (cachedData && cachedData.length > 0) {
+          // 캐시에 데이터가 있으면 복원
+          setWhiskeys([...cachedData]); // 새 배열로 설정 (불변성)
+          pageRef.current = tabPageCache.current[activeTab] || 1;
+          setHasMore(tabHasMoreCache.current[activeTab] ?? true);
+        } else {
+          // 캐시에 데이터가 없으면 로드
+          loadData(true, activeTab);
+        }
+        
+        setTimeout(() => {
+          isTabChanging.current = false; // 탭 전환 완료
+        }, 100);
+      } else {
+        // 초기 마운트: 데이터 로드
+        loadData(true, activeTab);
+        isInitialMount.current = false;
+      }
     }
   }, [activeTab, loadData]);
 
@@ -388,17 +442,9 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
   // 가격 관리 탭 - 무한 스크롤 제거 (더보기 버튼 사용)
 
 
-  // activeTab이 변경될 때마다 데이터 로드
-  useEffect(() => {
-    if (activeTab === 'list' || activeTab === 'cart') {
-      loadData(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]); // activeTab이 변경될 때마다 실행
 
   // 가격 관리 관련 함수들 - 서버사이드 검색 적용
   const loadPriceWhiskeys = useCallback(async (searchTerm: string = '', page: number = 1, reset: boolean = true) => {
-    console.log('🔍 loadPriceWhiskeys 호출:', { searchTerm, page, reset });
     setPriceLoading(true);
     try {
       let query = supabase
@@ -408,7 +454,6 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
 
       // 검색어가 있으면 서버에서 필터링
       if (searchTerm) {
-        console.log('🔎 검색어로 필터링:', searchTerm);
         query = query.or(`name.ilike.%${searchTerm}%,brand.ilike.%${searchTerm}%`);
       }
 
@@ -416,15 +461,11 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
       const startIndex = reset ? 0 : (page - 1) * pricePageSize;
       const endIndex = reset ? pricePageSize - 1 : (page * pricePageSize - 1);
 
-      console.log('📊 쿼리 실행:', { startIndex, endIndex });
       const { data, error } = await query.range(startIndex, endIndex);
 
       if (error) {
-        console.error('❌ 쿼리 에러:', error);
         throw error;
       }
-      
-      console.log('✅ 데이터 로드 완료:', data?.length || 0, '건');
 
       // reset이면 처음부터, 아니면 추가로 로드
       if (reset) {
@@ -451,11 +492,11 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
             .select('id', { count: 'exact', head: true });
           setTotalPriceCount(count || 0);
         } catch (countError) {
-          console.error('전체 개수 조회 오류:', countError);
+          // 에러 처리
         }
       }
     } catch (error) {
-      console.error('위스키 가격 정보 로드 오류:', error);
+      // 에러 처리
     } finally {
       setPriceLoading(false);
     }
@@ -511,7 +552,6 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
         });
 
       if (insertError) {
-        console.error('가격 이력 저장 실패:', insertError);
         throw insertError;
       }
 
@@ -529,14 +569,12 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
         .eq('id', whiskeyId);
 
       if (updateError) {
-        console.error('whiskeys 업데이트 실패:', updateError);
         throw updateError;
       }
 
       alert('가격이 업데이트되었습니다.');
       loadPriceWhiskeys();
     } catch (error) {
-      console.error('가격 업데이트 오류:', error);
       alert('가격 업데이트에 실패했습니다.');
     } finally {
       setUpdating(null);
@@ -603,7 +641,6 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
             });
 
           if (insertError) {
-            console.error(`가격 이력 저장 실패 (${whiskey.name}):`, insertError);
             throw insertError;
           }
 
@@ -621,13 +658,11 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
             .eq('id', whiskey.id);
 
           if (updateError) {
-            console.error(`whiskeys 업데이트 실패 (${whiskey.name}):`, updateError);
             throw updateError;
           }
           
           successCount++;
         } catch (error) {
-          console.error(`위스키 ${whiskey.name} 업데이트 실패:`, error);
           failCount++;
         }
       }
@@ -635,7 +670,6 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
       alert(`${successCount}개 위스키가 업데이트되었습니다. ${failCount > 0 ? `(실패: ${failCount}개)` : ''}`);
       loadPriceWhiskeys();
     } catch (error) {
-      console.error('전체 가격 업데이트 오류:', error);
       alert(`가격 업데이트에 실패했습니다: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setUpdating(null);
@@ -658,7 +692,7 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
         [whiskeyId]: data || []
       }));
     } catch (error) {
-      console.error('가격 이력 로드 오류:', error);
+      // 에러 처리
     }
   };
 
@@ -688,7 +722,7 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
       setPriceHistory(data || []);
       setSelectedWhiskeyForChart(whiskeyId);
     } catch (error) {
-      console.error('가격 이력 조회 오류:', error);
+      // 에러 처리
     }
   };
 
@@ -697,11 +731,24 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
     threshold: 80
   });
 
-  // 검색어 변경 시 자동 재조회
+  // 필터 변경 시 서버에서 재로드 (탭 전환 시에는 제외)
+  const previousFilters = useRef({
+    searchTerm,
+    filterBrand,
+    filterType,
+    filterRegion,
+    minPrice,
+    maxPrice
+  });
+
   useEffect(() => {
-    if (activeTab === 'list' || activeTab === 'cart') {
-      // 항상 데이터 로드 (필터가 없어도 전체 목록을 조회)
-      loadData(true);
+    const currentFilters = { searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice };
+    const filtersChanged = JSON.stringify(currentFilters) !== JSON.stringify(previousFilters.current);
+    
+    // 탭 전환 중이 아니고 필터가 변경되었을 때만 서버에서 데이터 로드
+    if ((activeTab === 'list' || activeTab === 'cart') && filtersChanged && !isTabChanging.current) {
+      previousFilters.current = currentFilters;
+      loadData(true, activeTab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice, activeTab]);
@@ -904,70 +951,6 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
         <WhiskeyModal whiskeyId={selectedWhiskeyId} onClose={() => handleSetSelectedWhiskeyId(null)} />
       )}
 
-      {/* 필터 상태 표시 */}
-      {(searchTerm || filterBrand || filterType || filterRegion || minPrice > 0 || maxPrice < 2000000) && (
-        <div style={{
-          position: 'sticky',
-          top: '0px',
-          zIndex: 10,
-          backgroundColor: '#FEF3C7',
-          padding: '8px 12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid #FDE68A'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '12px', fontWeight: '600', color: '#92400E' }}>
-              🔍 필터 적용 중
-            </span>
-            {searchTerm && (
-              <span style={{ fontSize: '10px', color: '#B45309' }}>
-                검색: {searchTerm}
-              </span>
-            )}
-            {filterBrand && (
-              <span style={{ fontSize: '10px', color: '#B45309' }}>
-                브랜드: {filterBrand}
-              </span>
-            )}
-            {filterType && (
-              <span style={{ fontSize: '10px', color: '#B45309' }}>
-                타입: {filterType}
-              </span>
-            )}
-            {filterRegion && (
-              <span style={{ fontSize: '10px', color: '#B45309' }}>
-                지역: {filterRegion}
-              </span>
-            )}
-            {(minPrice > 0 || maxPrice < 2000000) && (
-              <span style={{ fontSize: '10px', color: '#B45309' }}>
-                가격: {minPrice.toLocaleString()}원 ~ {maxPrice.toLocaleString()}원
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => {
-              if (onResetFilters) {
-                onResetFilters();
-              }
-            }}
-            style={{
-              padding: '4px 8px',
-              backgroundColor: '#92400E',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '10px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            필터 해제
-          </button>
-        </div>
-      )}
       
       {/* 목록 */}
       {filteredWhiskeys.length === 0 && !loading ? (
@@ -982,11 +965,12 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
           {filteredWhiskeys.map((whiskey, index) => (
             <SwipeableCard
               key={`${whiskey.id}-${index}`}
+              cardId={`whiskey-${whiskey.id}`}
               onEdit={() => handleEditWhiskey(whiskey.id)}
               onDelete={() => handleDeleteWhiskey(whiskey.id, whiskey.name)}
-                editLabel="수정"
-                deleteLabel="삭제"
-                style={{ marginBottom: '6px', backgroundColor: 'white' }}
+              editLabel="수정"
+              deleteLabel="삭제"
+              style={{ marginBottom: '6px', backgroundColor: 'white' }}
             >
               <div
                 onClick={() => handleSetSelectedWhiskeyId(whiskey.id)}
@@ -1188,6 +1172,8 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
 
 const MobileWhiskeyList: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  
   // location.state에서 activeTab 정보를 읽어서 초기값 설정
   const initialTab = (location.state as any)?.activeTab || 'list';
   const [activeTab, setActiveTab] = useState<'list' | 'cart' | 'summary'>(initialTab);
@@ -1200,6 +1186,9 @@ const MobileWhiskeyList: React.FC = () => {
   const [allWhiskeys, setAllWhiskeys] = useState<IWhiskey[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [selectedWhiskeyId, setSelectedWhiskeyId] = useState<string | null>(null);
+  const [showWhiskeyForm, setShowWhiskeyForm] = useState(false);
+  const [editingWhiskeyId, setEditingWhiskeyId] = useState<string | null>(null);
+  const formOpenedByStateRef = useRef(false); // 오버레이로 열렸는지 추적
   const [counts, setCounts] = useState({ list: 0, cart: 0, price: 0 });
   
   // 탭 변경 시 검색 창 닫기
@@ -1241,7 +1230,6 @@ const MobileWhiskeyList: React.FC = () => {
               const priceCount = count || 0;
               setCounts({ list: (data || []).length, cart: cartCount, price: priceCount });
             } catch (error) {
-              console.error('가격관리 개수 로드 오류:', error);
               setCounts({ list: (data || []).length, cart: cartCount, price: 0 });
             }
           };
@@ -1342,7 +1330,6 @@ const MobileWhiskeyList: React.FC = () => {
     <div style={{ 
       display: 'flex', 
       justifyContent: 'flex-start',
-      borderBottom: '2px solid #E5E7EB', 
       backgroundColor: 'white'
     }}>
         <button
@@ -1399,21 +1386,378 @@ const MobileWhiskeyList: React.FC = () => {
       </div>
       );
 
+  // 위스키 추가 핸들러
+  const handleAddWhiskey = useCallback(() => {
+    // 오버레이로 표시만 하고 라우터 경로는 변경하지 않음 (새로고침 방지)
+    formOpenedByStateRef.current = true; // 상태로 열림 표시
+    
+    setShowWhiskeyForm(true);
+    setEditingWhiskeyId(null);
+  }, [location.pathname, showWhiskeyForm]);
+
+  // 위스키 추가 버튼 클릭 이벤트 리스너 (MobileAppContainer의 MobileLayout에서 발생)
+  useEffect(() => {
+    const handleWhiskeyAddClick = (e: Event) => {
+      // 이벤트가 이미 처리되었는지 확인 (중복 방지)
+      if ((e as CustomEvent).detail?.processed) {
+        return;
+      }
+      // 이벤트 전파 중단
+      e.stopPropagation();
+      handleAddWhiskey();
+    };
+    
+    window.addEventListener('whiskeyAddClick', handleWhiskeyAddClick);
+    return () => {
+      window.removeEventListener('whiskeyAddClick', handleWhiskeyAddClick);
+    };
+  }, [handleAddWhiskey]);
+
+  // 위스키 목록 새로고침 함수
+  const refreshWhiskeyList = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('whiskeys')
+        .select('id, name, brand, type, age, abv, region, image_url, price, current_price_usd, exchange_rate, is_favorite');
+      
+      setAllWhiskeys(data || []);
+      const uniqueBrands = Array.from(new Set(data?.map(w => w.brand).filter(Boolean))) as string[];
+      const uniqueTypes = Array.from(new Set(data?.map(w => w.type).filter(Boolean))) as string[];
+      const uniqueRegions = Array.from(new Set(data?.map(w => w.region).filter(Boolean))) as string[];
+      setBrands(uniqueBrands.sort());
+      setTypes(uniqueTypes.sort());
+      setRegions(uniqueRegions.sort());
+      
+      // 탭 개수 업데이트
+      const cartCount = (data || []).filter((w: any) => w.is_favorite).length;
+      const { count } = await supabase
+        .from('whiskeys')
+        .select('id', { count: 'exact', head: true });
+      const priceCount = count || 0;
+      setCounts({ list: (data || []).length, cart: cartCount, price: priceCount });
+      
+      // 각 탭 컴포넌트에 새로고침 신호 전달
+      window.dispatchEvent(new CustomEvent('whiskeyListRefresh'));
+    } catch (error) {
+      // 에러 처리
+    }
+  }, []);
+
+  // 라우터 경로 확인하여 위스키 폼 오버레이 표시 (직접 URL 접근 시에만)
+  // 상세보기와 달리 추가 폼은 직접 URL 접근도 지원해야 하므로 이 로직 유지
+  // 단, 상태로 열린 경우는 절대 개입하지 않음 (상세보기처럼 완전히 상태 기반)
+  useEffect(() => {
+    // 상태로 열린 경우는 완전히 무시 - 상세보기와 동일하게 상태 기반으로만 동작
+    if (formOpenedByStateRef.current) {
+      return;
+    }
+    
+    // 직접 URL 접근인 경우에만 처리 (브라우저에서 직접 /mobile/whiskey/new 접근)
+    if (location.pathname === '/mobile/whiskey/new') {
+      setShowWhiskeyForm(true);
+      setEditingWhiskeyId(null);
+      // 직접 URL 접근 시에도 오버레이로 처리하므로 경로를 되돌림 (새로고침 방지)
+      navigate('/mobile/whiskeys', { replace: true });
+    } else if (location.pathname.match(/^\/mobile\/whiskey\/(.+)\/edit$/)) {
+      const match = location.pathname.match(/^\/mobile\/whiskey\/(.+)\/edit$/);
+      if (match) {
+        setShowWhiskeyForm(true);
+        setEditingWhiskeyId(match[1]);
+        // 직접 URL 접근 시에도 오버레이로 처리하므로 경로를 되돌림 (새로고침 방지)
+        navigate('/mobile/whiskeys', { replace: true });
+      }
+    }
+    // 주의: 상태로 열리지 않은 경우에도 다른 경로로 이동했다고 해서 폼을 닫지 않음
+    // (사용자가 브라우저 뒤로가기로 직접 접근했던 페이지에서 나간 경우에만 닫아야 함)
+    // 하지만 이것도 복잡하므로, 상태로 열린 경우가 아닐 때만 경로 기반으로 열기만 처리
+  }, [location.pathname, showWhiskeyForm]);
+
   return (
     <div style={{ backgroundColor: 'white', minHeight: '100vh' }}>
-      {/* 위스키 상세보기 모달 */}
+      {/* 위스키 상세보기 오버레이 */}
       {selectedWhiskeyId && (
-        <WhiskeyModal whiskeyId={selectedWhiskeyId} onClose={() => setSelectedWhiskeyId(null)} />
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          pointerEvents: 'auto'
+        }}>
+          <WhiskeyDetailWrapper whiskeyId={selectedWhiskeyId} onClose={() => setSelectedWhiskeyId(null)} />
+        </div>
+      )}
+
+      {/* 위스키 추가/수정 오버레이 - 상세보기와 동일하게 직접 렌더링 (래퍼 없음) */}
+      {showWhiskeyForm && (
+        <MobileWhiskeyForm 
+          id={editingWhiskeyId || undefined} // 수정 모드인 경우 id 전달
+          onClose={() => {
+            // 상세보기와 동일하게 상태만 변경 (라우터 경로 변경 없음)
+            formOpenedByStateRef.current = false;
+            
+            setShowWhiskeyForm(false);
+            setEditingWhiskeyId(null);
+          }}
+          onSuccess={() => {
+            // 저장 성공 시에만 목록 새로고침
+            refreshWhiskeyList();
+            // 폼 닫기
+            setShowWhiskeyForm(false);
+            setEditingWhiskeyId(null);
+          }}
+        />
       )}
       
+      {/* 필터 상태 표시 (상위 컴포넌트에서 렌더링) */}
+      {(activeTab === 'list' || activeTab === 'cart') && (searchTerm || filterBrand || filterType || filterRegion || minPrice > 0 || maxPrice < 2000000) && (
+        <div style={{
+          position: 'sticky',
+          top: '0px',
+          zIndex: 10,
+          backgroundColor: '#FEF3C7',
+          padding: '8px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid #FDE68A',
+          gap: '8px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#92400E' }}>
+              🔍 필터 적용 중
+            </span>
+            {searchTerm && (
+              <span style={{ 
+                fontSize: '10px', 
+                color: '#B45309',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(180, 83, 9, 0.1)',
+                borderRadius: '12px'
+              }}>
+                검색: {searchTerm}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchTerm('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#92400E',
+                    cursor: 'pointer',
+                    padding: '0',
+                    margin: '0',
+                    fontSize: '12px',
+                    lineHeight: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '14px',
+                    height: '14px'
+                  }}
+                  title="검색어 제거"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+            {filterBrand && (
+              <span style={{ 
+                fontSize: '10px', 
+                color: '#B45309',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(180, 83, 9, 0.1)',
+                borderRadius: '12px'
+              }}>
+                브랜드: {filterBrand}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFilterBrand('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#92400E',
+                    cursor: 'pointer',
+                    padding: '0',
+                    margin: '0',
+                    fontSize: '12px',
+                    lineHeight: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '14px',
+                    height: '14px'
+                  }}
+                  title="브랜드 필터 제거"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+            {filterType && (
+              <span style={{ 
+                fontSize: '10px', 
+                color: '#B45309',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(180, 83, 9, 0.1)',
+                borderRadius: '12px'
+              }}>
+                타입: {filterType}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFilterType('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#92400E',
+                    cursor: 'pointer',
+                    padding: '0',
+                    margin: '0',
+                    fontSize: '12px',
+                    lineHeight: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '14px',
+                    height: '14px'
+                  }}
+                  title="타입 필터 제거"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+            {filterRegion && (
+              <span style={{ 
+                fontSize: '10px', 
+                color: '#B45309',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(180, 83, 9, 0.1)',
+                borderRadius: '12px'
+              }}>
+                지역: {filterRegion}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFilterRegion('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#92400E',
+                    cursor: 'pointer',
+                    padding: '0',
+                    margin: '0',
+                    fontSize: '12px',
+                    lineHeight: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '14px',
+                    height: '14px'
+                  }}
+                  title="지역 필터 제거"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+            {(minPrice > 0 || maxPrice < 2000000) && (
+              <span style={{ 
+                fontSize: '10px', 
+                color: '#B45309',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(180, 83, 9, 0.1)',
+                borderRadius: '12px'
+              }}>
+                가격: {minPrice.toLocaleString()}원 ~ {maxPrice.toLocaleString()}원
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMinPrice(0);
+                    setMaxPrice(2000000);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#92400E',
+                    cursor: 'pointer',
+                    padding: '0',
+                    margin: '0',
+                    fontSize: '12px',
+                    lineHeight: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '14px',
+                    height: '14px'
+                  }}
+                  title="가격 필터 제거"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              setFilterBrand('');
+              setFilterType('');
+              setFilterRegion('');
+              setMinPrice(0);
+              setMaxPrice(2000000);
+            }}
+            style={{
+              padding: '4px 8px',
+              backgroundColor: '#92400E',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            전체 해제
+          </button>
+        </div>
+      )}
+
       <MobileLayout 
         categoryTabs={categoryTabsContent}
         searchValue={searchTerm}
         onSearchChange={(value: string) => setSearchTerm(value)}
+        onSearchExecute={() => {
+          // 검색 실행 시 필터 레이어 표시
+          setShowSearch(true);
+        }}
         filterOptions={filterOptions}
         searchVisible={showSearch}
         onSearchVisibleChange={setShowSearch}
-        showSearchBar={activeTab === 'list' || activeTab === 'cart'}
+        showSearchBar={(activeTab === 'list' || activeTab === 'cart') && !showWhiskeyForm}
         onResetFilters={() => {
           setSearchTerm('');
           setFilterBrand('');
@@ -1422,30 +1766,84 @@ const MobileWhiskeyList: React.FC = () => {
           setMinPrice(0);
           setMaxPrice(2000000);
         }}
+        onAddWhiskeyClick={handleAddWhiskey}
       >
-        <MobileWhiskeyListContent 
-          searchTerm={searchTerm}
-          filterBrand={filterBrand}
-          filterType={filterType}
-          filterRegion={filterRegion}
-          minPrice={minPrice}
-          maxPrice={maxPrice}
-          activeTab={activeTab}
-          whiskeys={allWhiskeys}
-          setSelectedWhiskeyId={setSelectedWhiskeyId}
-          onCountChange={setCounts}
-          onResetFilters={() => {
-            setSearchTerm('');
-            setFilterBrand('');
-            setFilterType('');
-            setFilterRegion('');
-            setMinPrice(0);
-            setMaxPrice(2000000);
+        <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+        {/* 탭별 레이어 - 각 탭을 독립적인 레이어로 관리 */}
+        <div 
+          style={{ 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: activeTab === 'list' ? 1 : -1,
+            pointerEvents: activeTab === 'list' ? 'auto' : 'none',
+            opacity: activeTab === 'list' ? 1 : 0,
+            transition: 'opacity 0.2s'
           }}
-        />
+        >
+          <MobileWhiskeyListTab
+            searchTerm={searchTerm}
+            filterBrand={filterBrand}
+            filterType={filterType}
+            filterRegion={filterRegion}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onEditWhiskey={(id: string) => {
+              // 오버레이 방식으로 수정 폼 열기
+              formOpenedByStateRef.current = true;
+              setEditingWhiskeyId(id);
+              setShowWhiskeyForm(true);
+            }}
+          />
+        </div>
+        <div 
+          style={{ 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: activeTab === 'cart' ? 1 : -1,
+            pointerEvents: activeTab === 'cart' ? 'auto' : 'none',
+            opacity: activeTab === 'cart' ? 1 : 0,
+            transition: 'opacity 0.2s'
+          }}
+        >
+          <MobileWhiskeyCartTab
+            searchTerm={searchTerm}
+            filterBrand={filterBrand}
+            filterType={filterType}
+            filterRegion={filterRegion}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+          />
+        </div>
+        <div 
+          style={{ 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: activeTab === 'summary' ? 1 : -1,
+            pointerEvents: activeTab === 'summary' ? 'auto' : 'none',
+            opacity: activeTab === 'summary' ? 1 : 0,
+            transition: 'opacity 0.2s'
+          }}
+        >
+          <MobileWhiskeySummaryTab whiskeys={allWhiskeys} />
+        </div>
+        </div>
       </MobileLayout>
     </div>
   );
+};
+
+// 위스키 상세보기 오버레이 래퍼
+const WhiskeyDetailWrapper: React.FC<{ whiskeyId: string; onClose: () => void }> = ({ whiskeyId, onClose }) => {
+  return <MobileWhiskeyDetail id={whiskeyId} onClose={onClose} />;
 };
 
 export default MobileWhiskeyList;

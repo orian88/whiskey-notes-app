@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores';
 import MobileLayout from '../components/MobileLayout';
@@ -6,9 +6,25 @@ import Button from '../components/Button';
 import { supabase } from '../lib/supabase';
 import { getCurrentExchangeRate, convertKrwToUsd } from '../utils/priceCollector';
 
-const MobileSettings: React.FC = () => {
+interface MobileSettingsProps {
+  onClose?: () => void;
+}
+
+const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
   const navigate = useNavigate();
   const { signOut } = useAuthStore();
+  
+  // 슬라이드 애니메이션 상태
+  const [isEntering, setIsEntering] = useState(true);
+  const [isLeaving, setIsLeaving] = useState(false);
+  
+  useEffect(() => {
+    // 마운트 시 슬라이드 인 애니메이션
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 10);
+    return () => clearTimeout(timer);
+  }, []);
   
   // 목록 표시 개수 설정
   const [itemsPerPage, setItemsPerPage] = useState(() => {
@@ -40,6 +56,23 @@ const MobileSettings: React.FC = () => {
   // 환율 업데이트 관련 상태
   const [isUpdatingExchangeRate, setIsUpdatingExchangeRate] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0, currentPrice: '' });
+
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      if (onClose) {
+        onClose();
+      } else {
+        navigate('/mobile');
+      }
+    }, 300);
+  };
+
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)';
+    if (isEntering) return 'translateX(100%)';
+    return 'translateX(0)';
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -136,33 +169,45 @@ const MobileSettings: React.FC = () => {
   };
 
   return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#f9fafb',
+        zIndex: 9999,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflow: 'hidden'
+      }}
+    >
+      {/* Fixed Header */}
+      <header 
+        style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, height: '56px',
+          backgroundColor: 'white', borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)', zIndex: 1001,
+          display: 'flex', alignItems: 'center', padding: '0 16px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <button onClick={handleClose} style={{ 
+            background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', padding: '4px' 
+          }}>←</button>
+          <div style={{ flex: 1, fontSize: '18px', fontWeight: 600, color: '#1f2937', textAlign: 'center' }}>설정</div>
+          <div style={{ width: '32px' }}></div>
+        </div>
+      </header>
+      
+      {/* Scrollable Content Area */}
+      <div style={{
+        position: 'absolute', top: '56px', left: 0, right: 0, bottom: 0,
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch'
+      }}>
     <MobileLayout showSearchBar={false}>
       <div style={{ padding: '16px', height: '100%' }}>
-        {/* 상단 고정 닫기 버튼 */}
-        <button
-          onClick={() => navigate('/mobile')}
-          style={{
-            position: 'fixed',
-            top: '80px',
-            right: '16px',
-            width: '44px',
-            height: '44px',
-            borderRadius: '50%',
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
-            border: 'none',
-            color: 'white',
-            fontSize: '24px',
-            cursor: 'pointer',
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
-          }}
-        >
-          ×
-        </button>
-
         <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>⚙️ 설정</h2>
         
         {/* 홈 화면 로딩 속도 설정 */}
@@ -378,6 +423,8 @@ const MobileSettings: React.FC = () => {
         </div>
       </div>
     </MobileLayout>
+      </div>
+    </div>
   );
 };
 

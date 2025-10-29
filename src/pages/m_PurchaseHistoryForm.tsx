@@ -47,7 +47,13 @@ interface IPurchaseFormData {
   notes?: string;
 }
 
-const MobilePurchaseHistoryForm: React.FC = () => {
+interface MobilePurchaseHistoryFormProps {
+  onClose?: () => void;
+  onSuccess?: () => void;
+  purchaseId?: string;
+}
+
+const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ onClose, onSuccess, purchaseId: purchaseIdProp }) => {
   const navigate = useNavigate();
   const [whiskeys, setWhiskeys] = useState<IWhiskey[]>([]);
   const [selectedWhiskey, setSelectedWhiskey] = useState<IWhiskeyWithPrice | null>(null);
@@ -165,6 +171,82 @@ const MobilePurchaseHistoryForm: React.FC = () => {
       loadWhiskeys();
     }
   }, [showWhiskeySelector]);
+
+  // purchaseId가 있으면 수정 모드로 데이터 로드
+  useEffect(() => {
+    if (purchaseIdProp) {
+      loadPurchaseData();
+    }
+  }, [purchaseIdProp]);
+
+  const loadPurchaseData = async () => {
+    if (!purchaseIdProp) return;
+
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('purchases')
+        .select(`
+          *,
+          whiskeys!inner(
+            id,
+            name,
+            brand,
+            image_url,
+            type,
+            region,
+            abv,
+            age
+          )
+        `)
+        .eq('id', purchaseIdProp)
+        .single();
+
+      if (error) throw error;
+      if (!data) return;
+
+      console.log('구매 정보 로드 성공:', data);
+
+      // 위스키 정보 설정
+      const whiskey = data.whiskeys;
+      if (whiskey) {
+        const recentPrice = await loadWhiskeyPrice(whiskey.id);
+        setSelectedWhiskey({ ...whiskey, recentPrice: recentPrice || undefined });
+      }
+
+      // 폼 데이터 설정
+      setFormData({
+        whiskeyId: data.whiskey_id || '',
+        purchaseDate: data.purchase_date || new Date().toISOString().split('T')[0],
+        originalPrice: data.original_price || 0,
+        originalCurrency: data.original_currency || 'KRW',
+        originalExchangeRate: data.original_exchange_rate || 1,
+        basicDiscountAmount: data.basic_discount_amount || 0,
+        basicDiscountCurrency: data.basic_discount_currency || 'KRW',
+        basicDiscountExchangeRate: data.basic_discount_exchange_rate || 1,
+        couponDiscountAmount: data.coupon_discount_amount || 0,
+        couponDiscountCurrency: data.coupon_discount_currency || 'KRW',
+        couponDiscountExchangeRate: data.coupon_discount_exchange_rate || 1,
+        membershipDiscountAmount: data.membership_discount_amount || 0,
+        membershipDiscountCurrency: data.membership_discount_currency || 'KRW',
+        membershipDiscountExchangeRate: data.membership_discount_exchange_rate || 1,
+        eventDiscountAmount: data.event_discount_amount || 0,
+        eventDiscountCurrency: data.event_discount_currency || 'KRW',
+        eventDiscountExchangeRate: data.event_discount_exchange_rate || 1,
+        purchaseLocation: data.purchase_location || '',
+        storeName: data.store_name || '',
+        tastingStartDate: data.tasting_start_date || '',
+        tastingFinishDate: data.tasting_finish_date || '',
+        notes: data.notes || ''
+      });
+    } catch (error) {
+      console.error('구매 기록 로드 오류:', error);
+      alert('구매 기록을 불러올 수 없습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadWhiskeys = async () => {
     try {
@@ -341,38 +423,61 @@ const MobilePurchaseHistoryForm: React.FC = () => {
       const totalDiscountKRW = basicDiscountKRW + couponDiscountKRW + membershipDiscountKRW + eventDiscountKRW;
       const finalPriceKRW = calculateFinalPriceKRW();
 
-      const { error } = await supabase
-        .from('purchases')
-        .insert({
-          whiskey_id: formData.whiskeyId,
-          purchase_date: formData.purchaseDate,
-          original_price: formData.originalPrice,
-          original_currency: formData.originalCurrency,
-          original_exchange_rate: formData.originalExchangeRate,
-          final_price_krw: finalPriceKRW,
-          basic_discount_amount: basicDiscountKRW,
-          basic_discount_currency: formData.basicDiscountCurrency,
-          basic_discount_exchange_rate: formData.basicDiscountExchangeRate,
-          coupon_discount_amount: couponDiscountKRW,
-          coupon_discount_currency: formData.couponDiscountCurrency,
-          coupon_discount_exchange_rate: formData.couponDiscountExchangeRate,
-          membership_discount_amount: membershipDiscountKRW,
-          membership_discount_currency: formData.membershipDiscountCurrency,
-          membership_discount_exchange_rate: formData.membershipDiscountExchangeRate,
-          event_discount_amount: eventDiscountKRW,
-          event_discount_currency: formData.eventDiscountCurrency,
-          event_discount_exchange_rate: formData.eventDiscountExchangeRate,
-          purchase_location: formData.purchaseLocation || null,
-          store_name: formData.storeName || null,
-          tasting_start_date: formData.tastingStartDate || null,
-          tasting_finish_date: formData.tastingFinishDate || null,
-          notes: formData.notes || null
-        });
+      const purchaseData = {
+        whiskey_id: formData.whiskeyId,
+        purchase_date: formData.purchaseDate,
+        original_price: formData.originalPrice,
+        original_currency: formData.originalCurrency,
+        original_exchange_rate: formData.originalExchangeRate,
+        final_price_krw: finalPriceKRW,
+        basic_discount_amount: basicDiscountKRW,
+        basic_discount_currency: formData.basicDiscountCurrency,
+        basic_discount_exchange_rate: formData.basicDiscountExchangeRate,
+        coupon_discount_amount: couponDiscountKRW,
+        coupon_discount_currency: formData.couponDiscountCurrency,
+        coupon_discount_exchange_rate: formData.couponDiscountExchangeRate,
+        membership_discount_amount: membershipDiscountKRW,
+        membership_discount_currency: formData.membershipDiscountCurrency,
+        membership_discount_exchange_rate: formData.membershipDiscountExchangeRate,
+        event_discount_amount: eventDiscountKRW,
+        event_discount_currency: formData.eventDiscountCurrency,
+        event_discount_exchange_rate: formData.eventDiscountExchangeRate,
+        purchase_location: formData.purchaseLocation || null,
+        store_name: formData.storeName || null,
+        tasting_start_date: formData.tastingStartDate || null,
+        tasting_finish_date: formData.tastingFinishDate || null,
+        notes: formData.notes || null
+      };
+
+      let error;
+      
+      if (purchaseIdProp) {
+        // 수정 모드
+        const { error: updateError } = await supabase
+          .from('purchases')
+          .update(purchaseData)
+          .eq('id', purchaseIdProp);
+        
+        error = updateError;
+      } else {
+        // 추가 모드
+        const { error: insertError } = await supabase
+          .from('purchases')
+          .insert(purchaseData);
+        
+        error = insertError;
+      }
 
       if (error) throw error;
 
-      alert('구매 기록이 추가되었습니다.');
-      navigate('/mobile/purchase');
+      alert(purchaseIdProp ? '구매 기록이 수정되었습니다.' : '구매 기록이 추가되었습니다.');
+      
+      // onSuccess가 있으면 호출하고 navigate는 하지 않음 (오버레이 방식)
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/mobile/purchase');
+      }
     } catch (error) {
       console.error('구매 기록 추가 오류:', error);
       alert('구매 기록 추가에 실패했습니다.');
@@ -382,34 +487,30 @@ const MobilePurchaseHistoryForm: React.FC = () => {
   };
 
   return (
-    <MobileLayout>
-      <div style={{ padding: '16px', paddingBottom: '80px' }}>
-        <div style={{ marginBottom: '16px' }}>
+    <div style={{ padding: '16px', paddingBottom: '80px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
+          구매 기록 {purchaseIdProp ? '수정' : '추가'}
+        </h2>
+        {onClose && (
           <button
-            onClick={() => navigate('/mobile/purchase')}
+            onClick={onClose}
             style={{
-              backgroundColor: 'white',
-              border: '1px solid #E5E7EB',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#1F2937',
+              padding: '8px',
+              border: 'none',
+              background: 'transparent',
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+              fontSize: '20px',
+              color: '#6B7280'
             }}
           >
-            <span>←</span> 목록으로
+            ✕
           </button>
-        </div>
+        )}
+      </div>
+
 
         <Card style={{ padding: '16px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
-            구매 기록 추가
-          </h2>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* 위스키 선택 */}
@@ -992,7 +1093,13 @@ const MobilePurchaseHistoryForm: React.FC = () => {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => navigate('/mobile/purchase')}
+                onClick={() => {
+                  if (onClose) {
+                    onClose();
+                  } else {
+                    navigate('/mobile/purchase');
+                  }
+                }}
                 style={{ flex: 1 }}
               >
                 취소
@@ -1003,7 +1110,6 @@ const MobilePurchaseHistoryForm: React.FC = () => {
             </div>
           </form>
         </Card>
-      </div>
 
       {/* 위스키 선택 모달 */}
       {showWhiskeySelector && (
@@ -1112,7 +1218,7 @@ const MobilePurchaseHistoryForm: React.FC = () => {
           </div>
         </div>
       )}
-    </MobileLayout>
+    </div>
   );
 };
 

@@ -35,7 +35,13 @@ interface IPurchase {
   discount_price?: number;
 }
 
-const MobileTastingNotesForm: React.FC = () => {
+interface MobileTastingNotesFormProps {
+  onClose?: () => void;
+  onSuccess?: () => void;
+  tastingId?: string;
+}
+
+const MobileTastingNotesForm: React.FC<MobileTastingNotesFormProps> = ({ onClose, onSuccess, tastingId: tastingIdProp }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [purchases, setPurchases] = useState<IPurchase[]>([]);
@@ -68,14 +74,18 @@ const MobileTastingNotesForm: React.FC = () => {
   // 위스키 선택 여부에 따른 비활성화 상태
   const isDisabled = !selectedPurchaseId;
 
-  // 쿼리 파라미터에서 tastingId 가져오기
+  // prop이나 쿼리 파라미터에서 tastingId 가져오기
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tastingIdParam = params.get('tastingId');
-    if (tastingIdParam) {
-      setTastingId(tastingIdParam);
+    if (tastingIdProp) {
+      setTastingId(tastingIdProp);
+    } else {
+      const params = new URLSearchParams(location.search);
+      const tastingIdParam = params.get('tastingId');
+      if (tastingIdParam) {
+        setTastingId(tastingIdParam);
+      }
     }
-  }, [location.search]);
+  }, [tastingIdProp, location.search]);
 
   useEffect(() => {
     loadPurchases();
@@ -162,8 +172,68 @@ const MobileTastingNotesForm: React.FC = () => {
     return emojiMap[option] || '🥃';
   };
 
+  // 한글 옵션명을 영문 파일명으로 매핑하는 함수
   const getImageFileName = (option: string) => {
-    return option.replace(/\s+/g, '_').toLowerCase();
+    const mapping: { [key: string]: string } = {
+      // 향 (aroma)
+      '바닐라': 'Vanilia',
+      '카라멜': 'Caramel',
+      '허니': 'Honey',
+      '초콜릿': 'Chocolate',
+      '커피': 'Coffee',
+      '과일': 'Fruit',
+      '사과': 'apple',
+      '배': 'Pear',
+      '복숭아': 'Peach',
+      '체리': 'Cherry',
+      '꽃향': 'Flower',
+      '장미': 'Rose',
+      '라벤더': 'Lavender',
+      '재스민': 'Jasmine',
+      '스파이스': 'Spice',
+      '시나몬': 'Cinnamon',
+      '정향': 'Clove',
+      '후추': 'Pepper',
+      '생강': 'ginger',
+      '오크': 'Oak',
+      '바닐라 오크': 'Vanilla Oak',
+      '스모키': 'Smoky',
+      '피트': 'Peat',
+      '민트': 'Mint',
+      '유칼립투스': 'Eucalyptus',
+      '허브': 'Hurb',
+      '타르': 'Tar',
+      '고무': 'Rubber',
+      
+      // 맛 (taste)
+      '달콤함': 'sweetness',
+      '단맛': 'sweetness',
+      '과일맛': 'fruit',
+      '신맛': 'sour',
+      '레몬': 'Lemon',
+      '라임': 'Lime',
+      '오렌지': 'Orange',
+      '쓴맛': 'bitterness',
+      '다크 초콜릿': 'Chocolate',
+      '호두': 'Walnut',
+      '매운맛': 'spicy',
+      '짠맛': 'salty',
+      '해산물': 'seafood',
+      '바다향': 'sea-scent',
+      
+      // 여운 (aftertaste)
+      '짧음': 'short',
+      '보통': 'medium',
+      '긴 여운': 'long',
+      '따뜻함': 'warm',
+      '차가움': 'cool',
+      '톡 쏘는 느낌': 'tingling',
+      '부드러움': 'smooth',
+      '거친 느낌': 'rough',
+      '크리미함': 'creamy'
+    };
+    
+    return mapping[option] || option;
   };
 
   // 잔여량 색상 함수
@@ -407,7 +477,12 @@ const MobileTastingNotesForm: React.FC = () => {
           .eq('id', selectedPurchaseId);
       }
 
-      navigate('/mobile/tasting-notes');
+      // onSuccess가 있으면 호출하고 navigate는 하지 않음 (오버레이 방식)
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/mobile/tasting-notes');
+      }
     } catch (error) {
       console.error('저장 오류:', error);
       alert('저장 중 오류가 발생했습니다.');
@@ -430,11 +505,72 @@ const MobileTastingNotesForm: React.FC = () => {
   });
 
   return (
-    <MobileLayout>
-      <div style={{ padding: '16px', paddingBottom: '80px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
-          {tastingId ? '테이스팅 노트 수정' : '새 테이스팅 노트'}
-        </h2>
+    <>
+      {/* 상단 고정 헤더 */}
+      <header 
+        style={{ 
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '56px',
+          backgroundColor: 'white',
+          borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+          zIndex: 1001,
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 16px'
+        }}
+      >
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px',
+          flex: 1
+        }}>
+          <button
+            onClick={onClose}
+            style={{ 
+              padding: '8px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontSize: '18px'
+            }}
+          >
+            ←
+          </button>
+
+          {/* 페이지 제목 */}
+          <div style={{ 
+            flex: 1,
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#1f2937',
+            textAlign: 'center'
+          }}>
+            {tastingId ? '테이스팅 노트 수정' : '새 테이스팅 노트'}
+          </div>
+          
+          {/* 우측 빈 공간 (대칭 유지) */}
+          <div style={{ width: '32px' }}></div>
+        </div>
+      </header>
+
+      {/* 스크롤 가능한 콘텐츠 영역 */}
+      <div style={{
+        position: 'absolute',
+        top: '56px',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        paddingBottom: '80px'
+      }}>
+        <div style={{ padding: '16px' }}>
 
         {/* 위스키 선택 */}
         <div style={{ marginBottom: '16px' }}>
@@ -461,7 +597,7 @@ const MobileTastingNotesForm: React.FC = () => {
             marginBottom: '16px',
             border: '1px solid #E5E7EB'
           }}>
-            {/* 위스키 이미지 및 기본 정보 */}
+            {/* 위스키 이미지 및 기본 정보 + 잔여량 오른쪽 배치 */}
             <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
               {selectedPurchase.whiskeys?.image_url && (
                 <div style={{ width: '200px', height: '200px', flexShrink: 0 }}>
@@ -483,90 +619,111 @@ const MobileTastingNotesForm: React.FC = () => {
                   </div>
                 </div>
               )}
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#111827' }}>
-                  {selectedPurchase.whiskeys?.name}
-                </div>
-                <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '12px' }}>
-                  {selectedPurchase.whiskeys?.brand}
-                </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'row', gap: '16px' }}>
+                {/* 좌측: 위스키 정보 */}
+                <div style={{ flex: 2, minWidth: 0 }}>
+                  <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#111827' }}>
+                    {selectedPurchase.whiskeys?.name}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '12px' }}>
+                    {selectedPurchase.whiskeys?.brand}
+                  </div>
 
-                {/* 타입, 지역, 볼륨, 도수 정보 */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginTop: '12px' }}>
-                  {selectedPurchase.whiskeys?.type && (
-                    <div style={{
-                      backgroundColor: '#EF4444',
-                      color: 'white',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      textAlign: 'center'
-                    }}>
-                      {selectedPurchase.whiskeys.type}
-                    </div>
-                  )}
-                  {selectedPurchase.whiskeys?.region && (
-                    <div style={{
-                      backgroundColor: '#059669',
-                      color: 'white',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      textAlign: 'center'
-                    }}>
-                      {selectedPurchase.whiskeys.region}
-                    </div>
-                  )}
-                  {selectedPurchase.whiskeys?.bottle_volume && (
-                    <div style={{
-                      backgroundColor: '#F0FDF4',
-                      color: '#111827',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      textAlign: 'center',
-                      border: '1px solid #BBF7D0'
-                    }}>
-                      {selectedPurchase.whiskeys.bottle_volume}ml
-                    </div>
-                  )}
-                  {selectedPurchase.whiskeys?.abv && (
-                    <div style={{
-                      backgroundColor: '#FEF3C7',
-                      color: '#111827',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      textAlign: 'center',
-                      border: '1px solid #FDE68A'
-                    }}>
-                      {selectedPurchase.whiskeys.abv}%
-                    </div>
-                  )}
-                </div>
-
-                {/* 잔여량 정보 */}
-                {(() => {
-                  const bottleVolume = selectedPurchase.bottle_volume || selectedPurchase.whiskeys?.bottle_volume || 700;
-                  const color = getRemainingColor(selectedPurchase.remaining_amount, bottleVolume);
-                  return (
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '8px 12px',
-                      backgroundColor: color.bg,
-                      borderRadius: '6px',
-                      border: `1px solid ${color.border}`
-                    }}>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: color.text }}>
-                        📦 잔여량: {selectedPurchase.remaining_amount}ml ({((selectedPurchase.remaining_amount / bottleVolume) * 100).toFixed(0)}%)
+                  {/* 타입, 지역, 볼륨, 도수 정보 */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginTop: '12px' }}>
+                    {selectedPurchase.whiskeys?.type && (
+                      <div style={{
+                        backgroundColor: '#EF4444',
+                        color: 'white',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        textAlign: 'center'
+                      }}>
+                        {selectedPurchase.whiskeys.type}
                       </div>
-                    </div>
-                  );
-                })()}
+                    )}
+                    {selectedPurchase.whiskeys?.region && (
+                      <div style={{
+                        backgroundColor: '#059669',
+                        color: 'white',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        textAlign: 'center'
+                      }}>
+                        {selectedPurchase.whiskeys.region}
+                      </div>
+                    )}
+                    {selectedPurchase.whiskeys?.bottle_volume && (
+                      <div style={{
+                        backgroundColor: '#F0FDF4',
+                        color: '#111827',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                        border: '1px solid #BBF7D0'
+                      }}>
+                        {selectedPurchase.whiskeys.bottle_volume}ml
+                      </div>
+                    )}
+                    {selectedPurchase.whiskeys?.abv && (
+                      <div style={{
+                        backgroundColor: '#FEF3C7',
+                        color: '#111827',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                        border: '1px solid #FDE68A'
+                      }}>
+                        {selectedPurchase.whiskeys.abv}%
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* 우측: 잔여량 정보 */}
+                <div style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'flex-end',
+                  minWidth: '140px',
+                  maxWidth: '180px'
+                }}>
+                  {(() => {
+                    const bottleVolume = selectedPurchase.bottle_volume || selectedPurchase.whiskeys?.bottle_volume || 700;
+                    const color = getRemainingColor(selectedPurchase.remaining_amount, bottleVolume);
+                    return (
+                      <div style={{
+                        marginTop: '0',
+                        marginLeft: '12px',
+                        padding: '12px 16px',
+                        backgroundColor: color.bg,
+                        borderRadius: '10px',
+                        border: `1px solid ${color.border}`,
+                        minWidth: '120px',
+                        maxWidth: '170px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '14px', fontWeight: '700', color: color.text }}>
+                          📦 잔여량
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: color.text, marginTop: '4px' }}>
+                          {selectedPurchase.remaining_amount}ml
+                        </div>
+                        <div style={{ fontSize: '12px', color: color.text, marginTop: '2px' }}>
+                          ({((selectedPurchase.remaining_amount / bottleVolume) * 100).toFixed(0)}%)
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
 
@@ -697,7 +854,7 @@ const MobileTastingNotesForm: React.FC = () => {
                   }
                 }}
                 image={getEmojiForOption(option)}
-                backgroundImage={`/img/icons/nose/${encodeURIComponent(getImageFileName(option))}.png`}
+                backgroundImage={`/img/icons/aroma/${encodeURIComponent(getImageFileName(option))}.png`}
                 accentColor="#3B82F6"
                 height={42}
                 disabled={isDisabled}
@@ -767,7 +924,7 @@ const MobileTastingNotesForm: React.FC = () => {
                   }
                 }}
                 image={getEmojiForOption(option)}
-                backgroundImage={`/img/icons/finish/${encodeURIComponent(getImageFileName(option))}.png`}
+                backgroundImage={`/img/icons/aftertaste/${encodeURIComponent(getImageFileName(option))}.png`}
                 accentColor="#06B6D4"
                 height={42}
                 disabled={isDisabled}
@@ -878,7 +1035,13 @@ const MobileTastingNotesForm: React.FC = () => {
         <div style={{ display: 'flex', gap: '8px', marginTop: '24px' }}>
           <Button
             variant="secondary"
-            onClick={() => navigate('/mobile/tasting-notes')}
+            onClick={() => {
+              if (onClose) {
+                onClose();
+              } else {
+                navigate('/mobile/tasting-notes');
+              }
+            }}
             style={{ flex: 1 }}
           >
             취소
@@ -892,7 +1055,6 @@ const MobileTastingNotesForm: React.FC = () => {
             {loading ? '저장 중...' : '저장'}
           </Button>
         </div>
-      </div>
 
       {/* 구매 선택 모달 */}
       {showPurchaseModal && (
@@ -966,6 +1128,7 @@ const MobileTastingNotesForm: React.FC = () => {
                       alignItems: 'center'
                     }}
                   >
+                    {/* 왼쪽: 이미지 */}
                     {purchase.whiskeys?.image_url && (
                       <img
                         src={purchase.whiskeys.image_url}
@@ -978,13 +1141,17 @@ const MobileTastingNotesForm: React.FC = () => {
                         }}
                       />
                     )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* 가운데: 기본 정보 */}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
                         {purchase.whiskeys?.name}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6B7280' }}>
                         {purchase.whiskeys?.brand}
                       </div>
+                    </div>
+                    {/* 오른쪽: 남은 용량 */}
+                    <div style={{ display: 'flex', alignItems: 'center', minWidth: '82px', justifyContent: 'flex-end' }}>
                       {(() => {
                         const bottleVolume = purchase.bottle_volume || purchase.whiskeys?.bottle_volume || 700;
                         const color = getRemainingColor(purchase.remaining_amount, bottleVolume);
@@ -992,13 +1159,14 @@ const MobileTastingNotesForm: React.FC = () => {
                           <div style={{
                             fontSize: '11px',
                             fontWeight: '600',
-                            marginTop: '4px',
                             padding: '4px 8px',
                             borderRadius: '4px',
                             backgroundColor: color.bg,
                             border: `1px solid ${color.border}`,
                             color: color.text,
-                            display: 'inline-block'
+                            display: 'inline-block',
+                            minWidth: '62px',
+                            textAlign: 'center'
                           }}>
                             📦 {purchase.remaining_amount}ml
                           </div>
@@ -1012,7 +1180,9 @@ const MobileTastingNotesForm: React.FC = () => {
           </div>
         </div>
       )}
-    </MobileLayout>
+        </div>
+      </div>
+    </>
   );
 };
 

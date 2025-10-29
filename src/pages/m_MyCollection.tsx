@@ -4,8 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import MobileLayout from '../components/MobileLayout';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
-import CollectionModal from '../components/CollectionModal';
-import DonutChart from '../components/DonutChart';
+import MobileMyCollectionListTab from './m_MyCollectionListTab';
+import MobileMyCollectionSummaryTab from './m_MyCollectionSummaryTab';
 
 interface ICollectionItem {
   id: string;
@@ -34,6 +34,10 @@ const MobileMyCollection: React.FC = () => {
   const [collectionItems, setCollectionItems] = useState<ICollectionItem[]>([]);
   const [displayedItems, setDisplayedItems] = useState<ICollectionItem[]>([]);
   const [activeTab, setActiveTab] = useState<'list' | 'summary'>('list');
+  
+  // 탭별 데이터 캐시
+  const tabDataCache = useRef<{ list?: ICollectionItem[], summary?: ICollectionItem[] }>({});
+  const tabPageCache = useRef<{ list?: number }>({});
   
   const handleTabChange = (tab: 'list' | 'summary') => {
     // 현재 탭의 스크롤 위치 저장
@@ -68,7 +72,6 @@ const MobileMyCollection: React.FC = () => {
   const [scrollPositions, setScrollPositions] = useState<{list: number, summary: number}>({list: 0, summary: 0});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
 
   // 데이터 로드 함수
   const loadData = useCallback(async () => {
@@ -146,6 +149,25 @@ const MobileMyCollection: React.FC = () => {
     }
   }, []);
 
+  // activeTab에 따라 캐시된 데이터 복원
+  useEffect(() => {
+    if (activeTab === 'list') {
+      const cachedData = tabDataCache.current[activeTab];
+      if (cachedData && cachedData.length > 0) {
+        setCollectionItems(cachedData);
+        setPage(tabPageCache.current[activeTab] || 1);
+      }
+    }
+  }, [activeTab]);
+  
+  // collectionItems 데이터 변경 시 캐시 업데이트
+  useEffect(() => {
+    if (activeTab === 'list') {
+      tabDataCache.current[activeTab] = collectionItems;
+      tabPageCache.current[activeTab] = page;
+    }
+  }, [collectionItems, activeTab, page]);
+  
   // 초기 로드 시에만 데이터 로드
   useEffect(() => {
     if (!hasInitialized.current) {
@@ -188,7 +210,12 @@ const MobileMyCollection: React.FC = () => {
     return Array.from(new Set(collectionItems.map(item => item.whiskey?.abv).filter(Boolean))).sort((a, b) => a! - b!);
   }, [collectionItems]);
 
-  // 검색 필터 및 정렬 (useMemo로 최적화)
+  // 더보기 핸들러
+  const handleLoadMore = useCallback(() => {
+    setPage(prev => prev + 1);
+  }, []);
+
+  // 필터링된 아이템 계산
   const filteredItems = useMemo(() => {
     let filtered = collectionItems.filter(item => {
       // 검색어 필터
@@ -250,6 +277,16 @@ const MobileMyCollection: React.FC = () => {
     setDisplayedItems(filteredItems.slice(0, page * pageSize));
   }, [page, filteredItems, pageSize]);
 
+  // 검색어 변경 시 페이지 초기화
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, filterBrand, filterType, filterABV]);
+
+  // hasMore 계산
+  const hasMore = useMemo(() => {
+    return displayedItems.length < filteredItems.length;
+  }, [displayedItems.length, filteredItems.length]);
+
   // 탭 변경 시 스크롤 위치 복원 또는 맨 위로 이동
   useEffect(() => {
     if (containerRef.current) {
@@ -264,93 +301,10 @@ const MobileMyCollection: React.FC = () => {
         }
       }
     }
-  }, [activeTab]);
+  }, [activeTab, isInitialLoad, scrollPositions]);
 
-  // 스크롤 이벤트 핸들러 비활성화 (더보기 버튼 사용)
-
-  // 색상 반환 함수
-  const getYearColor = (age?: number) => {
-    if (!age) return '#9CA3AF';
-    if (age <= 10) return '#8B5CF6';
-    if (age <= 15) return '#7C3AED';
-    if (age <= 20) return '#6D28D9';
-    if (age <= 25) return '#5B21B6';
-    return '#4C1D95';
-  };
-
-  const getTypeColor = (type?: string) => {
-    if (!type) return '#6B7280';
-    const typeLower = type.toLowerCase();
-    if (typeLower.includes('single malt')) return '#06B6D4';
-    if (typeLower.includes('blended')) return '#0891B2';
-    if (typeLower.includes('bourbon')) return '#0E7490';
-    if (typeLower.includes('rye')) return '#155E75';
-    return '#6B7280';
-  };
-
-  const getABVColor = (abv?: number) => {
-    if (!abv) return '#6B7280';
-    if (abv <= 40) return '#84CC16';
-    if (abv <= 45) return '#65A30D';
-    if (abv <= 50) return '#4D7C0F';
-    if (abv <= 55) return '#3F6212';
-    return '#365314';
-  };
-
-  const getRemainingAmountColor = (amount: number) => {
-    if (amount >= 80) return '#92400E';
-    if (amount >= 60) return '#B45309';
-    if (amount >= 40) return '#D97706';
-    if (amount >= 20) return '#F59E0B';
-    return '#FBBF24';
-  };
-
-  // 통계 계산
-  const stats = useMemo(() => ({
-    totalItems: collectionItems.length,
-    brandCount: new Set(collectionItems.map(item => item.whiskey?.brand).filter(Boolean)).size,
-    totalTastings: collectionItems.reduce((sum, item) => sum + item.tasting_count, 0),
-    avgTastingsPerBottle: collectionItems.length > 0
-      ? collectionItems.reduce((sum, item) => sum + item.tasting_count, 0) / collectionItems.length
-      : 0,
-    avgRemaining: collectionItems.length > 0
-      ? collectionItems.reduce((sum, item) => sum + item.remaining_amount, 0) / collectionItems.length
-      : 0,
-    avgRating: collectionItems.length > 0
-      ? collectionItems.reduce((sum, item) => sum + (item.current_rating || 0), 0) / collectionItems.length
-      : 0,
-    ratedCount: collectionItems.filter(item => item.current_rating && item.current_rating > 0).length
-  }), [collectionItems]);
-
-  // 브랜드별 통계
-  const brandStats = collectionItems.reduce((acc, item) => {
-    const brand = item.whiskey?.brand || 'Unknown';
-    acc[brand] = (acc[brand] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // 타입별 통계
-  const typeStats = collectionItems.reduce((acc, item) => {
-    const type = item.whiskey?.type || 'Unknown';
-    acc[type] = (acc[type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // 컬렉션 상태 분석
-  const statusAnalysis = useMemo(() => ({
-    tastedCount: collectionItems.filter(item => (item.tasting_count || 0) > 0).length,
-    tastedPercentage: (collectionItems.filter(item => (item.tasting_count || 0) > 0).length / stats.totalItems * 100).toFixed(1),
-    highRemainingCount: collectionItems.filter(item => item.remaining_amount >= 80).length,
-    lowRemainingCount: collectionItems.filter(item => item.remaining_amount < 20).length,
-    highRatedCount: collectionItems.filter(item => item.current_rating && item.current_rating >= 7).length
-  }), [collectionItems, stats.totalItems]);
-
-  // 검색어 변경 시 페이지 초기화
-  useEffect(() => {
-    setPage(1);
-  }, [searchTerm]);
-
-  if (loading) {
+  // 로딩 중일 때는 로딩 표시만 반환 (모든 훅은 이미 호출됨)
+  if (loading && collectionItems.length === 0) {
     return (
       <MobileLayout>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -362,11 +316,6 @@ const MobileMyCollection: React.FC = () => {
 
   return (
     <>
-      {/* 진열장 상세보기 모달 */}
-      {selectedPurchaseId && (
-        <CollectionModal purchaseId={selectedPurchaseId} onClose={() => setSelectedPurchaseId(null)} />
-      )}
-
       <MobileLayout 
         categoryTabs={
           <div style={{ 
@@ -547,7 +496,7 @@ const MobileMyCollection: React.FC = () => {
           height: '100%'
         }}>
           {activeTab === 'list' ? (
-            <div>
+            <>
             {/* 필터 상태 표시 */}
             {(searchTerm || filterBrand || filterType || filterABV) && (
               <div style={{
@@ -611,686 +560,25 @@ const MobileMyCollection: React.FC = () => {
               </div>
             )}
 
-            {displayedItems.length === 0 ? (
-              <div style={{ padding: '40px 16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏛️</div>
-                <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
-                  {(searchTerm || filterBrand || filterType || filterABV) ? '검색 결과가 없습니다' : '진열장이 비어있습니다'}
-                </div>
-              </div>
-            ) : (
-              <div>
-                {displayedItems.map((item, index) => (
-                  <div
-                    key={item.id}
-                    onClick={() => setSelectedPurchaseId(item.purchase_id)}
-                    style={{
-                      backgroundColor: 'white',
-                      padding: '12px 16px',
-                      borderBottom: '1px solid #E5E7EB',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      animation: 'slideIn 0.4s ease-out forwards',
-                      opacity: 0,
-                      animationDelay: `${index * 0.05}s`
-                    }}
-                  >
-                    {/* 위스키 이미지 */}
-                    <div style={{
-                      width: '80px',
-                      height: '100px',
-                      backgroundColor: '#F9FAFB',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
-                      border: '1px solid #E5E7EB',
-                      position: 'relative',
-                      flexShrink: 0
-                    }}>
-                      {item.whiskey?.image_url ? (
-                        <img
-                          src={item.whiskey.image_url}
-                          alt={item.whiskey.name}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'contain'
-                          }}
-                        />
-                      ) : (
-                        <div style={{ fontSize: '32px' }}>🥃</div>
-                      )}
-                      
-                      {/* 테이스팅 레이어 - 사진 우측 상단 */}
-                      {item.tasting_count > 0 && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '4px',
-                          right: '4px',
-                          backgroundColor: '#10B981',
-                          color: 'white',
-                          fontSize: '8px',
-                          fontWeight: '700',
-                          padding: '2px 5px',
-                          borderRadius: '4px',
-                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
-                          zIndex: 2
-                        }}>
-                          테이스팅
-                        </div>
-                      )}
-
-                      {/* 남은 양 표시 */}
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '4px',
-                        right: '4px',
-                        backgroundColor: getRemainingAmountColor(item.remaining_amount),
-                        color: 'white',
-                        fontSize: '8px',
-                        fontWeight: '700',
-                        padding: '2px 5px',
-                        borderRadius: '6px',
-                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
-                      }}>
-                        {item.remaining_amount.toFixed(0)}%
-                      </div>
-                    </div>
-
-                    {/* 위스키 정보 */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* 위스키 이름 */}
-                      <h3 style={{
-                        fontSize: '14px',
-                        fontWeight: '700',
-                        color: '#1E293B',
-                        margin: '0 0 4px 0',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {item.whiskey?.name || '알 수 없는 위스키'}
-                      </h3>
-
-                      {/* 브랜드 */}
-                      {item.whiskey?.brand && (
-                        <div style={{
-                          fontSize: '12px',
-                          color: '#6B7280',
-                          fontWeight: '500',
-                          marginBottom: '6px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {item.whiskey.brand}
-                        </div>
-                      )}
-
-                      {/* 위스키 속성 */}
-                      <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '4px',
-                        marginBottom: '6px'
-                      }}>
-                        {item.whiskey?.type && (
-                          <span style={{
-                            fontSize: '9px',
-                            backgroundColor: getTypeColor(item.whiskey.type),
-                            color: 'white',
-                            padding: '2px 5px',
-                            borderRadius: '4px',
-                            fontWeight: '600'
-                          }}>
-                            {item.whiskey.type.substring(0, 12)}
-                          </span>
-                        )}
-                        {item.whiskey?.age && (
-                          <span style={{
-                            fontSize: '9px',
-                            backgroundColor: getYearColor(item.whiskey.age),
-                            color: 'white',
-                            padding: '2px 5px',
-                            borderRadius: '4px',
-                            fontWeight: '600'
-                          }}>
-                            {item.whiskey.age}년
-                          </span>
-                        )}
-                        {item.whiskey?.abv && (
-                          <span style={{
-                            fontSize: '9px',
-                            backgroundColor: getABVColor(item.whiskey.abv),
-                            color: 'white',
-                            padding: '2px 5px',
-                            borderRadius: '4px',
-                            fontWeight: '600'
-                          }}>
-                            {item.whiskey.abv}%
-                          </span>
-                        )}
-                      </div>
-
-                      {/* 테이스팅 기록 */}
-                      {item.tasting_count > 0 && item.last_tasted && (
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontSize: '11px',
-                          color: '#6B7280'
-                        }}>
-                          <span>🍷</span>
-                          <span style={{ fontWeight: '600' }}>테이스팅 {item.tasting_count}회</span>
-                          <span>•</span>
-                          <span>{new Date(item.last_tasted).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 우측 평점 */}
-                    <div style={{ 
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: '50px',
-                      flexShrink: 0
-                    }}>
-                      {item.current_rating ? (
-                        <div style={{
-                          fontSize: '18px',
-                          fontWeight: 'bold',
-                          color: item.current_rating >= 7 ? '#DC2626' : 
-                                 item.current_rating >= 5 ? '#EA580C' : 
-                                 item.current_rating >= 3 ? '#F59E0B' : '#9CA3AF',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}>
-                          ⭐ {item.current_rating.toFixed(1)}
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>
-                          미평가
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {/* 더보기 버튼 */}
-                {displayedItems.length < filteredItems.length && (
-                  <div style={{ padding: '20px', textAlign: 'center' }}>
-                    <button
-                      onClick={() => setPage(prev => prev + 1)}
-                      disabled={loading}
-                      style={{
-                        padding: '12px 24px',
-                        backgroundColor: '#8B4513',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        cursor: loading ? 'not-allowed' : 'pointer',
-                        opacity: loading ? 0.6 : 1
-                      }}
-                    >
-                      {loading ? '로딩 중...' : '더보기'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ padding: '16px' }}>
-            {/* 요약 제목 */}
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{
-                fontSize: '20px',
-                fontWeight: '700',
-                color: '#1e293b',
-                margin: '0 0 8px 0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                🏛️ 컬렉션 요약
-              </h2>
-              <div style={{
-                fontSize: '12px',
-                color: '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <span>🕒</span>
-                <span>마지막 업데이트: {new Date().toLocaleDateString('ko-KR')}</span>
-              </div>
-            </div>
-
-            {/* 통계 요약 */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '12px',
-              marginBottom: '20px'
-            }}>
-              <div style={{
-                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                borderRadius: '12px',
-                padding: '16px',
-                textAlign: 'center',
-                color: 'white',
-                boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.3)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-10px',
-                  fontSize: '60px',
-                  opacity: 0.3
-                }}>📦</div>
-                <div style={{ fontSize: '32px', fontWeight: '700', marginBottom: '6px', position: 'relative', zIndex: 1 }}>
-                  {stats.totalItems}
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px', position: 'relative', zIndex: 1 }}>
-                  총 보유 수
-                </div>
-                <div style={{ fontSize: '11px', opacity: 0.9, position: 'relative', zIndex: 1 }}>
-                  {stats.brandCount}개 브랜드
-                </div>
-              </div>
-
-              <div style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                borderRadius: '12px',
-                padding: '16px',
-                textAlign: 'center',
-                color: 'white',
-                boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-10px',
-                  fontSize: '60px',
-                  opacity: 0.3
-                }}>🍷</div>
-                <div style={{ fontSize: '32px', fontWeight: '700', marginBottom: '6px', position: 'relative', zIndex: 1 }}>
-                  {stats.totalTastings}
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px', position: 'relative', zIndex: 1 }}>
-                  총 테이스팅
-                </div>
-                <div style={{ fontSize: '11px', opacity: 0.9, position: 'relative', zIndex: 1 }}>
-                  평균 {stats.avgTastingsPerBottle.toFixed(1)}회/병
-                </div>
-              </div>
-
-              <div style={{
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                borderRadius: '12px',
-                padding: '16px',
-                textAlign: 'center',
-                color: 'white',
-                boxShadow: '0 4px 6px -1px rgba(245, 158, 11, 0.3)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-10px',
-                  fontSize: '60px',
-                  opacity: 0.3
-                }}>🍾</div>
-                <div style={{ fontSize: '32px', fontWeight: '700', marginBottom: '6px', position: 'relative', zIndex: 1 }}>
-                  {stats.avgRemaining.toFixed(1)}%
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px', position: 'relative', zIndex: 1 }}>
-                  평균 남은 양
-                </div>
-                <div style={{ fontSize: '11px', opacity: 0.9, position: 'relative', zIndex: 1 }}>
-                  {stats.totalItems}개 출병
-                </div>
-              </div>
-
-              <div style={{
-                background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-                borderRadius: '12px',
-                padding: '16px',
-                textAlign: 'center',
-                color: 'white',
-                boxShadow: '0 4px 6px -1px rgba(139, 92, 246, 0.3)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-10px',
-                  fontSize: '60px',
-                  opacity: 0.3
-                }}>⭐</div>
-                <div style={{ fontSize: '32px', fontWeight: '700', marginBottom: '6px', position: 'relative', zIndex: 1 }}>
-                  {stats.avgRating.toFixed(1)}
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px', position: 'relative', zIndex: 1 }}>
-                  평균 평점
-                </div>
-                <div style={{ fontSize: '11px', opacity: 0.9, position: 'relative', zIndex: 1 }}>
-                  {stats.ratedCount}개 평가함
-                </div>
-              </div>
-            </div>
-
-            {/* 브랜드별 분포 */}
-            <div style={{
-              backgroundColor: 'white',
-              border: '1px solid #E5E7EB',
-              borderRadius: '12px',
-              padding: '16px',
-              marginBottom: '16px'
-            }}>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                color: '#1e293b',
-                margin: '0 0 16px 0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                🏷️ 브랜드별 분포
-              </h3>
-              
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                {Object.entries(brandStats)
-                  .sort(([,a], [,b]) => b - a)
-                  .slice(0, 6)
-                  .map(([brand, count]) => (
-                    <div key={brand} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '6px 0'
-                    }}>
-                      <div style={{
-                        flex: 1,
-                        backgroundColor: '#f1f5f9',
-                        height: '10px',
-                        borderRadius: '5px',
-                        overflow: 'hidden',
-                        position: 'relative'
-                      }}>
-                        <div style={{
-                          width: `${(count / Math.max(...Object.values(brandStats))) * 100}%`,
-                          height: '100%',
-                          background: 'linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%)',
-                          transition: 'width 0.5s ease',
-                          borderRadius: '5px'
-                        }} />
-                      </div>
-                      <div style={{
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        color: '#1e293b',
-                        minWidth: '60px',
-                        textAlign: 'right'
-                      }}>
-                        {brand}: {count}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-              
-              {Object.keys(brandStats).length > 6 && (
-                <div style={{
-                  marginTop: '12px',
-                  fontSize: '11px',
-                  color: '#64748b',
-                  textAlign: 'center',
-                  fontStyle: 'italic'
-                }}>
-                  +{Object.keys(brandStats).length - 6}개 브랜드 더
-                </div>
-              )}
-            </div>
-
-            {/* 타입별 분포 */}
-            <div style={{
-              backgroundColor: 'white',
-              border: '1px solid #E5E7EB',
-              borderRadius: '12px',
-              padding: '16px',
-              marginBottom: '16px'
-            }}>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                color: '#1e293b',
-                margin: '0 0 16px 0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                🍺 타입별 분포
-              </h3>
-              
-              {/* 도넛 차트 */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                marginBottom: '16px'
-              }}>
-                <DonutChart data={typeStats} size={180} strokeWidth={16} showLegend={true} />
-              </div>
-              
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                {Object.entries(typeStats)
-                  .sort(([,a], [,b]) => b - a)
-                  .map(([type, count]) => (
-                    <div key={type} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 12px',
-                      backgroundColor: '#F9FAFB',
-                      borderRadius: '8px'
-                    }}>
-                      <span style={{ fontSize: '13px', color: '#1F2937', fontWeight: '500' }}>
-                        {type}
-                      </span>
-                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#3B82F6' }}>
-                        {count}개
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            {/* 컬렉션 상태 분석 */}
-            <div style={{
-              backgroundColor: 'white',
-              border: '1px solid #E5E7EB',
-              borderRadius: '12px',
-              padding: '16px',
-              marginBottom: '16px'
-            }}>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                color: '#1e293b',
-                margin: '0 0 16px 0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                📈 컬렉션 상태 분석
-              </h3>
-              
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '12px'
-              }}>
-                {/* 테이스팅 상태 */}
-                <div style={{
-                  padding: '12px',
-                  backgroundColor: '#f0fdf4',
-                  borderRadius: '8px',
-                  border: '1px solid #bbf7d0'
-                }}>
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#166534',
-                    marginBottom: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    🍷
-                  </div>
-                  <div style={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    color: '#15803d',
-                    marginBottom: '2px'
-                  }}>
-                    {statusAnalysis.tastedCount}개
-                  </div>
-                  <div style={{
-                    fontSize: '10px',
-                    color: '#166534'
-                  }}>
-                    테이스팅 완료 ({statusAnalysis.tastedPercentage}%)
-                  </div>
-                </div>
-
-                {/* 높은 양 */}
-                <div style={{
-                  padding: '12px',
-                  backgroundColor: '#fef3c7',
-                  borderRadius: '8px',
-                  border: '1px solid #fde68a'
-                }}>
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#92400e',
-                    marginBottom: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    🍾
-                  </div>
-                  <div style={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    color: '#B45309',
-                    marginBottom: '2px'
-                  }}>
-                    {statusAnalysis.highRemainingCount}개
-                  </div>
-                  <div style={{
-                    fontSize: '10px',
-                    color: '#92400e'
-                  }}>
-                    80% 이상 높은 양
-                  </div>
-                </div>
-
-                {/* 낮은 양 */}
-                <div style={{
-                  padding: '12px',
-                  backgroundColor: '#fee2e2',
-                  borderRadius: '8px',
-                  border: '1px solid #fecaca'
-                }}>
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    marginBottom: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    ⚠️
-                  </div>
-                  <div style={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    color: '#DC2626',
-                    marginBottom: '2px'
-                  }}>
-                    {statusAnalysis.lowRemainingCount}개
-                  </div>
-                  <div style={{
-                    fontSize: '10px',
-                    color: '#991b1b'
-                  }}>
-                    20% 이하 낮은 양
-                  </div>
-                </div>
-
-                {/* 고평점 */}
-                <div style={{
-                  padding: '12px',
-                  backgroundColor: '#fef2f2',
-                  borderRadius: '8px',
-                  border: '1px solid #fecaca'
-                }}>
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#dc2626',
-                    marginBottom: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    ⭐
-                  </div>
-                  <div style={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    color: '#DC2626',
-                    marginBottom: '2px'
-                  }}>
-                    {statusAnalysis.highRatedCount}개
-                  </div>
-                  <div style={{
-                    fontSize: '10px',
-                    color: '#dc2626'
-                  }}>
-                    7점 이상 고평점
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+              <MobileMyCollectionListTab
+                searchTerm={searchTerm}
+                filterBrand={filterBrand}
+                filterType={filterType}
+                filterABV={filterABV}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                collectionItems={filteredItems}
+                displayedItems={displayedItems}
+                page={page}
+                pageSize={pageSize}
+                hasMore={hasMore}
+                loading={loading}
+                onLoadMore={handleLoadMore}
+              />
+            </>
+          ) : (
+            <MobileMyCollectionSummaryTab collectionItems={collectionItems} />
+          )}
       </div>
       </div>
     </MobileLayout>

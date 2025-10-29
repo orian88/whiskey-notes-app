@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { usePageStateStore } from '../stores';
 
 interface SwipeableCardProps {
   children: React.ReactNode;
@@ -8,6 +9,7 @@ interface SwipeableCardProps {
   deleteLabel?: string;
   deleteColor?: string;
   style?: React.CSSProperties;
+  cardId?: string; // 카드 ID 추가
 }
 
 const SwipeableCard: React.FC<SwipeableCardProps> = ({
@@ -17,16 +19,51 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   editLabel = '수정',
   deleteLabel = '삭제',
   deleteColor = '#DC2626',
-  style
+  style,
+  cardId
 }) => {
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [shouldSlideBack, setShouldSlideBack] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const { setCardOpen, isCardOpen, closeAllCards } = usePageStateStore();
+  
+  // 버튼이 있는지 확인하여 너비 계산
+  const buttonWidth = onEdit && onDelete ? 240 : onEdit || onDelete ? 120 : 0;
+  
+  // 외부에서 카드 상태 변경을 감지
+  useEffect(() => {
+    if (cardId) {
+      const isOpen = isCardOpen(cardId);
+      if (!isOpen && translateX < 0) {
+        setTranslateX(0);
+        setShouldSlideBack(true);
+      }
+    }
+  }, [cardId, isCardOpen, translateX]);
+  
+  // 전역 카드 상태 동기화
+  const handleOpenChange = (isOpen: boolean) => {
+    if (cardId) {
+      setCardOpen(cardId, isOpen);
+      
+      // 다른 카드가 열릴 때는 모두 닫기 (한 번에 하나만 열림)
+      if (isOpen) {
+        closeAllCards();
+        setCardOpen(cardId, true);
+      }
+    }
+  };
+
+  // 외부에서 제어되는 열림 상태와 동기화
+  useEffect(() => {
+    handleOpenChange(translateX < -buttonWidth / 2);
+  }, [translateX, buttonWidth]);
 
   // 드래그 시작
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
     setIsDragging(true);
     setStartX(e.touches[0].clientX);
   };
@@ -40,10 +77,10 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
     
     // 오른쪽으로 스와이프만 허용 (translateX는 음수 값)
     if (diffX > 0) {
-      setTranslateX(-Math.min(diffX, 120)); // 최대 120px
+      setTranslateX(-Math.min(diffX, buttonWidth)); // 버튼 너비만큼 최대
     } else if (translateX < 0) {
       // 왼쪽으로 드래그할 때 천천히 복귀
-      setTranslateX(Math.max(translateX + diffX, -120));
+      setTranslateX(Math.max(translateX + diffX, -buttonWidth));
     }
   };
 
@@ -51,13 +88,16 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   const handleTouchEnd = () => {
     setIsDragging(false);
     
-    // 50% 이상 밀렸으면 열기, 아니면 닫기
-    if (translateX < -60) {
-      setTranslateX(-120);
+    // 버튼 너비의 50% 이상 밀렸으면 열기, 아니면 닫기
+    const threshold = buttonWidth / 2;
+    if (translateX < -threshold) {
+      setTranslateX(-buttonWidth);
       setShouldSlideBack(false);
+      handleOpenChange(true);
     } else {
       setTranslateX(0);
       setShouldSlideBack(true);
+      handleOpenChange(false);
     }
   };
 
@@ -67,6 +107,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
       if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
         setTranslateX(0);
         setShouldSlideBack(true);
+        closeAllCards();
       }
     };
 
@@ -77,7 +118,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [translateX]);
+  }, [translateX, closeAllCards]);
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -87,6 +128,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
     // 수정 후 자동으로 닫기
     setTranslateX(0);
     setShouldSlideBack(true);
+    closeAllCards();
   };
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -94,11 +136,14 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
     if (onDelete) {
       if (confirm('정말 삭제하시겠습니까?')) {
         onDelete();
+        closeAllCards();
+      } else {
+        // 취소되면 닫기
+        setTranslateX(0);
+        setShouldSlideBack(true);
+        closeAllCards();
       }
     }
-    // 취소되면 닫기
-    setTranslateX(0);
-    setShouldSlideBack(true);
   };
 
   return (
@@ -110,9 +155,9 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
           right: 0,
           top: 0,
           bottom: 0,
-          width: '240px',
+          width: `${buttonWidth}px`,
           display: 'flex',
-          transform: translateX === 0 ? 'translateX(240px)' : `translateX(${240 + translateX}px)`,
+          transform: translateX === 0 ? `translateX(${buttonWidth}px)` : `translateX(${buttonWidth + translateX}px)`,
           transition: shouldSlideBack ? 'transform 0.3s ease-out' : 'none',
           zIndex: 1
         }}

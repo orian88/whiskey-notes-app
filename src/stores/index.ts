@@ -411,3 +411,71 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
     }
   },
 }));
+
+// 페이지 상태 저장 스토어 (스크롤, 검색어 등)
+interface IPageStateStore {
+  scrollPositions: Record<string, number>;
+  pageStates: Record<string, any>;
+  openCards: Record<string, boolean>;
+  
+  saveScrollPosition: (path: string, position: number) => void;
+  getScrollPosition: (path: string) => number;
+  savePageState: (path: string, state: any) => void;
+  getPageState: (path: string) => any;
+  setCardOpen: (cardId: string, isOpen: boolean) => void;
+  isCardOpen: (cardId: string) => boolean;
+  closeAllCards: () => void;
+}
+
+// 설정 오버레이 상태 추가
+interface ISettingsOverlayStore {
+  isOpen: boolean;
+  open: () => void;
+  close: () => void;
+}
+
+export const useSettingsOverlayStore = create<ISettingsOverlayStore>((set) => ({
+  isOpen: false,
+  open: () => set({ isOpen: true }),
+  close: () => set({ isOpen: false }),
+}));
+
+export const usePageStateStore = create<IPageStateStore>((set, get) => ({
+  scrollPositions: {},
+  pageStates: {},
+  openCards: {},
+  
+  saveScrollPosition: (path: string, position: number) => {
+    set(state => ({
+      scrollPositions: { ...state.scrollPositions, [path]: position }
+    }));
+  },
+  
+  getScrollPosition: (path: string) => {
+    return get().scrollPositions[path] || 0;
+  },
+  
+  savePageState: (path: string, state: any) => {
+    set(current => ({
+      pageStates: { ...current.pageStates, [path]: state }
+    }));
+  },
+  
+  getPageState: (path: string) => {
+    return get().pageStates[path];
+  },
+  
+  setCardOpen: (cardId: string, isOpen: boolean) => {
+    set(state => ({
+      openCards: { ...state.openCards, [cardId]: isOpen }
+    }));
+  },
+  
+  isCardOpen: (cardId: string) => {
+    return get().openCards[cardId] || false;
+  },
+  
+  closeAllCards: () => {
+    set({ openCards: {} });
+  },
+}));

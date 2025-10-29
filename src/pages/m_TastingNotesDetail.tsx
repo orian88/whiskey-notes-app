@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
 import MobileLayout from '../components/MobileLayout';
 import SevenRadarChart from '../components/SevenRadarChart';
+import MobileTastingNotesForm from './m_TastingNotesForm';
 
 interface ITastingNote {
   id: string;
@@ -47,12 +49,31 @@ interface ITastingNote {
   };
 }
 
-const MobileTastingNotesDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface MobileTastingNotesDetailProps {
+  id?: string;
+  onClose?: () => void;
+}
+
+const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id: propId, onClose }) => {
+  const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const id = propId || paramId; // props 우선, 없으면 param 사용
   const [tastingNote, setTastingNote] = useState<ITastingNote | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [isEntering, setIsEntering] = useState(true); // 초기 진입 상태
+  const [showEditForm, setShowEditForm] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 마운트 시 애니메이션 (오른쪽 화면 밖에서 왼쪽으로 슬라이드 인)
+  useEffect(() => {
+    // 마운트 후 즉시 슬라이드 인 애니메이션 시작
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 10);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -244,13 +265,32 @@ const MobileTastingNotesDetail: React.FC = () => {
       }
 
       alert('삭제되었습니다.');
-      navigate('/mobile/tasting-notes');
+      handleClose();
     } catch (error) {
       console.error('삭제 오류:', error);
       alert('삭제에 실패했습니다.');
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      // props로 전달된 onClose가 있으면 사용, 없으면 navigate
+      if (onClose) {
+        onClose();
+      } else {
+        navigate(-1);
+      }
+    }, 300);
+  };
+
+  // 슬라이드 상태 계산: 진입 중 또는 나가는 중이면 translateX 적용
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)'; // 오른쪽으로 슬라이드 아웃
+    if (isEntering) return 'translateX(100%)'; // 처음엔 오른쪽에 위치
+    return 'translateX(0)'; // 중앙 위치
   };
 
   const getRatingColor = (rating: number) => {
@@ -281,82 +321,141 @@ const MobileTastingNotesDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <MobileLayout>
+      <div
+        ref={containerRef}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white',
+          zIndex: 9999,
+          transition: 'transform 0.3s ease-out',
+          transform: getSlideTransform(),
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
           <div>로딩 중...</div>
         </div>
-      </MobileLayout>
+      </div>
     );
   }
 
   if (!tastingNote) {
     return (
-      <MobileLayout>
-        <div style={{ padding: '40px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>😕</div>
-          <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '16px' }}>
-            테이스팅 노트를 찾을 수 없습니다
-          </div>
-          <Button variant="primary" onClick={() => navigate(-1)}>
-            목록으로 돌아가기
-          </Button>
+      <div
+        ref={containerRef}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white',
+          zIndex: 9999,
+          transition: 'transform 0.3s ease-out',
+          transform: getSlideTransform(),
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          padding: '40px 16px',
+          textAlign: 'center'
+        }}
+      >
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>😕</div>
+        <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '16px' }}>
+          테이스팅 노트를 찾을 수 없습니다
         </div>
-      </MobileLayout>
+        <Button variant="primary" onClick={handleClose}>
+          목록으로 돌아가기
+        </Button>
+      </div>
     );
   }
 
-  return (
-    <MobileLayout>
-      {/* 상단 고정 닫기 버튼 */}
-      <button
-        onClick={() => navigate(-1)}
-        style={{
+  const content = (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 9999,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflow: 'hidden'
+      }}
+    >
+      {/* 상단 고정 헤더 */}
+      <header 
+        style={{ 
           position: 'fixed',
-          top: '80px',
-          right: '16px',
-          width: '44px',
-          height: '44px',
-          borderRadius: '50%',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          border: 'none',
-          color: 'white',
-          fontSize: '24px',
-          cursor: 'pointer',
-          zIndex: 100,
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '56px',
+          backgroundColor: 'white',
+          borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+          zIndex: 1001,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+          padding: '0 16px'
         }}
       >
-        ×
-      </button>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px',
+          flex: 1
+        }}>
+          <button
+            onClick={handleClose}
+            style={{ 
+              padding: '8px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontSize: '18px'
+            }}
+          >
+            ←
+          </button>
 
-      {/* 하단 고정 목록으로 버튼 */}
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          border: 'none',
-          color: 'white',
-          padding: '12px 24px',
-          borderRadius: '24px',
-          fontSize: '12px',
-          fontWeight: '500',
-          cursor: 'pointer',
-          zIndex: 100,
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
-          whiteSpace: 'nowrap'
-        }}
-      >
-        ← 목록으로
-      </button>
+          {/* 페이지 제목 */}
+          <div style={{ 
+            flex: 1,
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#1f2937',
+            textAlign: 'center'
+          }}>
+            테이스팅 상세
+          </div>
+          
+          {/* 우측 빈 공간 (대칭 유지) */}
+          <div style={{ width: '32px' }}></div>
+        </div>
+      </header>
 
-      <div style={{ padding: '16px', paddingBottom: '20px' }}>
+      {/* 스크롤 가능한 콘텐츠 영역 */}
+      <div style={{
+        position: 'absolute',
+        top: '56px',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        paddingBottom: '80px'
+      }}>
+        <div style={{ padding: '16px' }}>
         {/* 위스키 정보 */}
         {tastingNote.whiskey && (
           <div style={{
@@ -530,28 +629,28 @@ const MobileTastingNotesDetail: React.FC = () => {
         }}>
           <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '12px', color: '#111827' }}>📅 테이스팅 정보</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', alignItems: 'center' }}>
               <span style={{ color: '#6B7280', fontSize: '13px' }}>테이스팅 날짜:</span>
-              <span style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{tastingNote.tasting_date}</span>
+              <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{tastingNote.tasting_date}</span>
             </div>
             {tastingNote.purchase?.first_open_date && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', alignItems: 'center' }}>
                 <span style={{ color: '#6B7280', fontSize: '13px' }}>첫 오픈일:</span>
-                <span style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{tastingNote.purchase.first_open_date}</span>
+                <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{tastingNote.purchase.first_open_date}</span>
               </div>
             )}
             {tastingNote.purchase?.aeration_period !== null && tastingNote.purchase?.aeration_period !== undefined && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', alignItems: 'center' }}>
                 <span style={{ color: '#6B7280', fontSize: '13px' }}>에어링 기간:</span>
-                <span style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{tastingNote.purchase.aeration_period}일</span>
+                <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{tastingNote.purchase.aeration_period}일</span>
               </div>
             )}
             {(() => {
               const amountConsumed = tastingNote.amount_consumed ?? 0;
               return amountConsumed > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13x', alignItems: 'center' }}>
                   <span style={{ color: '#6B7280', fontSize: '13px' }}>마신 양:</span>
-                  <span style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{amountConsumed}ml ({Math.round(amountConsumed / 50 * 10) / 10}잔)</span>
+                  <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{amountConsumed}ml ({Math.round(amountConsumed / 50 * 10) / 10}잔)</span>
                 </div>
               );
             })()}
@@ -560,9 +659,9 @@ const MobileTastingNotesDetail: React.FC = () => {
               const afterTastingRemaining = tastingNote.purchase.remaining_amount_at_this_date - amountConsumed;
               
               return (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', alignItems: 'center' }}>
                   <span style={{ color: '#6B7280', fontSize: '13px' }}>테이스팅 후 남은 양:</span>
-                  <span style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
+                  <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>
                     {afterTastingRemaining}ml
                     {tastingNote.whiskey?.bottle_volume && (
                       <span style={{ color: '#6B7280', fontWeight: '400', fontSize: '12px', marginLeft: '4px' }}>
@@ -844,10 +943,13 @@ const MobileTastingNotesDetail: React.FC = () => {
         <div style={{ display: 'flex', gap: '8px', marginTop: '24px' }}>
           <Button
             variant="secondary"
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              // 수정 폼 열기 (상세보기는 유지)
+              setShowEditForm(true);
+            }}
             style={{ flex: 1, fontSize: '12px' }}
           >
-            목록으로
+            수정
           </Button>
           <Button
             variant="danger"
@@ -858,8 +960,52 @@ const MobileTastingNotesDetail: React.FC = () => {
             {deleting ? '삭제 중...' : '삭제'}
           </Button>
         </div>
+        </div>
       </div>
-    </MobileLayout>
+    </div>
+  );
+
+  // Portal을 사용하여 body에 직접 렌더링 (최상위 레이어 보장)
+  return (
+    <>
+      {typeof document !== 'undefined' 
+        ? createPortal(content, document.body)
+        : content}
+      {typeof document !== 'undefined' && showEditForm
+        ? createPortal(
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'white',
+              zIndex: 100000, // 상세보기(9999)보다 위에 표시
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch'
+            }}>
+              <MobileTastingNotesForm
+                tastingId={id || undefined}
+                onClose={() => {
+                  // 폼만 닫기 (상세보기는 유지)
+                  setShowEditForm(false);
+                }}
+                onSuccess={() => {
+                  // 저장 성공 시 상세보기 데이터 다시 로드
+                  if (id) {
+                    loadData();
+                  }
+                  // 목록 새로고침을 위한 이벤트도 발생
+                  window.dispatchEvent(new CustomEvent('tastingListRefresh'));
+                  // 폼 닫기
+                  setShowEditForm(false);
+                }}
+              />
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 };
 

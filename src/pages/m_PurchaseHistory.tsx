@@ -9,6 +9,8 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 import PurchaseModal from '../components/PurchaseModal';
 import SwipeableCard from '../components/SwipeableCard';
+import MobilePurchaseHistoryDetail from './m_PurchaseHistoryDetail';
+import MobilePurchaseHistoryForm from './m_PurchaseHistoryForm';
 
 // 디바운스 훅
 const useDebounce = (value: string, delay: number) => {
@@ -64,6 +66,9 @@ const MobilePurchaseHistory: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
+  const [showPurchaseForm, setShowPurchaseForm] = useState(false);
+  const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
+  const formOpenedByStateRef = useRef(false);
 
   const loadData = React.useCallback(async (skipLoading = false) => {
     try {
@@ -147,14 +152,59 @@ const MobilePurchaseHistory: React.FC = () => {
 
   // 수정 핸들러
   const handleEditPurchase = useCallback((purchaseId: string) => {
-    navigate(`/mobile/purchase/${purchaseId}`);
-  }, [navigate]);
+    formOpenedByStateRef.current = true;
+    setEditingPurchaseId(purchaseId);
+    setShowPurchaseForm(true);
+  }, []);
 
   // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 구매 기록 추가 버튼 클릭 핸들러
+  const handleNewPurchase = useCallback(() => {
+    formOpenedByStateRef.current = true;
+    setShowPurchaseForm(true);
+    setEditingPurchaseId(null);
+  }, []);
+
+  // 구매 기록 추가 버튼 클릭 이벤트 리스너 (MobileLayout에서 발생)
+  useEffect(() => {
+    const handlePurchaseAddClick = (e: Event) => {
+      if ((e as CustomEvent).detail?.processed) {
+        return;
+      }
+      e.stopPropagation();
+      handleNewPurchase();
+    };
+    
+    window.addEventListener('purchaseAddClick', handlePurchaseAddClick);
+    return () => {
+      window.removeEventListener('purchaseAddClick', handlePurchaseAddClick);
+    };
+  }, [handleNewPurchase]);
+
+  // 라우터 경로 확인하여 구매 기록 폼 오버레이 표시
+  useEffect(() => {
+    if (formOpenedByStateRef.current) {
+      return;
+    }
+    
+    if (location.pathname === '/mobile/purchase/form' || location.pathname === '/mobile/purchase/new') {
+      setShowPurchaseForm(true);
+      setEditingPurchaseId(null);
+      navigate('/mobile/purchase', { replace: true });
+    } else if (location.pathname.match(/^\/mobile\/purchase\/(.+)$/)) {
+      const match = location.pathname.match(/^\/mobile\/purchase\/(.+)$/);
+      if (match && match[1] !== 'form') {
+        setShowPurchaseForm(true);
+        setEditingPurchaseId(match[1]);
+        navigate('/mobile/purchase', { replace: true });
+      }
+    }
+  }, [location.pathname, navigate]);
 
   // 목록으로 돌아왔을 때 스크롤 위치 복원
   useEffect(() => {
@@ -326,9 +376,36 @@ const MobilePurchaseHistory: React.FC = () => {
 
   return (
     <>
-      {/* 구매 상세보기 모달 */}
+      {/* 구매 상세보기 오버레이 */}
       {selectedPurchaseId && (
-        <PurchaseModal purchaseId={selectedPurchaseId} onClose={() => setSelectedPurchaseId(null)} />
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          pointerEvents: 'auto'
+        }}>
+          <PurchaseDetailWrapper purchaseId={selectedPurchaseId} onClose={() => setSelectedPurchaseId(null)} />
+        </div>
+      )}
+
+      {/* 구매 기록 추가/수정 오버레이 */}
+      {showPurchaseForm && (
+        <PurchaseFormOverlayWrapper
+          purchaseId={editingPurchaseId || undefined}
+          onClose={() => {
+            formOpenedByStateRef.current = false;
+            setShowPurchaseForm(false);
+            setEditingPurchaseId(null);
+          }}
+          onSuccess={() => {
+            loadData();
+            setShowPurchaseForm(false);
+            setEditingPurchaseId(null);
+          }}
+        />
       )}
 
       <MobileLayout
@@ -344,6 +421,7 @@ const MobilePurchaseHistory: React.FC = () => {
         }}
         searchVisible={showSearch}
         onSearchVisibleChange={setShowSearch}
+        showSearchBar={true}
       >
       <div 
         ref={(el) => {
@@ -358,16 +436,41 @@ const MobilePurchaseHistory: React.FC = () => {
           threshold={80}
           style={refreshIndicatorStyle}
         />
-      {/* 개수 표시 */}
+      {/* 개수 표시 및 검색 버튼 */}
       <div style={{ 
         padding: '12px 16px', 
         backgroundColor: 'white', 
         borderBottom: '1px solid #E5E7EB',
-        fontSize: '14px',
-        fontWeight: '600',
-        color: '#1F2937'
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
       }}>
-        구매 기록 ({purchases.length}개)
+        <div style={{
+          fontSize: '14px',
+          fontWeight: '600',
+          color: '#1F2937'
+        }}>
+          구매 기록 ({purchases.length}개)
+        </div>
+        <button
+          onClick={() => setShowSearch(!showSearch)}
+          style={{
+            padding: '6px 12px',
+            border: 'none',
+            backgroundColor: showSearch ? '#8B4513' : '#F9FAFB',
+            color: showSearch ? 'white' : '#6B7280',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          🔍 검색
+        </button>
       </div>
 
       {/* 필터 상태 표시 */}
@@ -432,20 +535,21 @@ const MobilePurchaseHistory: React.FC = () => {
           <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
             구매 기록이 없습니다
           </div>
-          <Button variant="primary" onClick={() => navigate('/mobile/purchase/form')}>
+          <Button variant="primary" onClick={handleNewPurchase}>
             + 구매 기록 추가
           </Button>
         </div>
       ) : (
         <div ref={containerRef} style={{ backgroundColor: 'white', padding: '4px', gap: '4px', height: '100%', overflowY: 'visible' }}>
           {displayedPurchases.map((purchase, index) => (
+            <div key={purchase.id}>
             <SwipeableCard
-              key={purchase.id}
+              cardId={`purchase-${purchase.id}`}
               onEdit={() => handleEditPurchase(purchase.id)}
               onDelete={() => handleDeletePurchase(purchase.id)}
-                editLabel="수정"
-                deleteLabel="삭제"
-                style={{ marginBottom: '4px', backgroundColor: 'white' }}
+              editLabel="수정"
+              deleteLabel="삭제"
+              style={{ marginBottom: '0', backgroundColor: 'white', borderBottom: index < displayedPurchases.length - 1 ? '1px solid #E5E7EB' : 'none' }}
             >
               <div
                 onClick={() => setSelectedPurchaseId(purchase.id)}
@@ -563,6 +667,7 @@ const MobilePurchaseHistory: React.FC = () => {
               </div>
               </div>
             </SwipeableCard>
+            </div>
           ))}
           {/* 더보기 버튼 */}
           {hasMore && displayedPurchases.length > 0 && (
@@ -591,6 +696,66 @@ const MobilePurchaseHistory: React.FC = () => {
       </div>
     </MobileLayout>
     </>
+  );
+};
+
+// 구매 상세보기 오버레이 래퍼
+const PurchaseDetailWrapper: React.FC<{ purchaseId: string; onClose: () => void }> = ({ purchaseId, onClose }) => {
+  return <MobilePurchaseHistoryDetail id={purchaseId} onClose={onClose} />;
+};
+
+// 구매 기록 폼 오버레이 래퍼
+const PurchaseFormOverlayWrapper: React.FC<{ 
+  purchaseId?: string; 
+  onClose: () => void; 
+  onSuccess: () => void;
+}> = ({ purchaseId, onClose, onSuccess }) => {
+  const [isEntering, setIsEntering] = useState(true);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsEntering(false), 10);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 슬라이드 상태 계산: 진입 중 또는 나가는 중이면 translateX 적용
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)'; // 오른쪽으로 슬라이드 아웃
+    if (isEntering) return 'translateX(100%)'; // 처음엔 오른쪽에 위치
+    return 'translateX(0)'; // 중앙 위치
+  };
+
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      onClose();
+    }, 300);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 10000,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch'
+      }}
+    >
+      <MobilePurchaseHistoryForm 
+        purchaseId={purchaseId}
+        onClose={handleClose}
+        onSuccess={onSuccess}
+      />
+    </div>
   );
 };
 

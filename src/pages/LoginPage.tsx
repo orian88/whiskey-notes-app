@@ -55,15 +55,16 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 px-4 py-8">
+    <div className="min-h-screen overflow-y-auto bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 px-4 py-4 sm:py-8">
       {/* 배경 장식 요소 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-orange-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
         <div className="absolute top-40 left-40 w-80 h-80 bg-amber-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8 items-center relative z-10">
+      <div className="max-w-5xl w-full mx-auto relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* 왼쪽: 브랜딩 영역 */}
         <div className="hidden lg:block text-center space-y-8 px-8">
           <div className="flex justify-center mb-8">
@@ -111,15 +112,15 @@ const LoginPage: React.FC = () => {
 
         {/* 오른쪽: 로그인 폼 */}
         <div className="w-full max-w-md mx-auto flex justify-center">
-          <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl p-8 w-full">
+          <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl p-6 sm:p-8 w-full">
             {/* 모바일용 제목 */}
-            <div className="lg:hidden text-center mb-8">
+            <div className="lg:hidden text-center mb-6">
               <img 
                 src="/img/icons/icon-192.png" 
                 alt="Whiskey Notes Icon" 
-                className="w-20 h-20 mx-auto mb-4 rounded-2xl shadow-lg"
+                className="w-16 h-16 mx-auto mb-3 rounded-2xl shadow-lg"
               />
-              <h2 className="text-3xl font-bold text-amber-900 mb-2">로그인</h2>
+              <h2 className="text-2xl font-bold text-amber-900 mb-2">로그인</h2>
             </div>
 
             {/* 데스크톱용 제목 */}
@@ -128,7 +129,7 @@ const LoginPage: React.FC = () => {
               <p className="text-gray-600">계정에 로그인하세요</p>
             </div>
 
-                                      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+                                      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
                 {error && (
                   <div style={{ 
                     width: '100%', 
@@ -174,7 +175,7 @@ const LoginPage: React.FC = () => {
                </div>
 
                {/* 버전 선택 UI */}
-               <div style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }}>
+               <div style={{ width: '100%', maxWidth: '400px', marginTop: '8px' }}>
                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px', display: 'block' }}>
                    접속 버전 선택
                  </label>
@@ -216,7 +217,7 @@ const LoginPage: React.FC = () => {
                  </div>
                </div>
 
-               <div style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }}>
+               <div style={{ width: '100%', maxWidth: '400px', marginTop: '8px' }}>
                  <Button
                    type="submit"
                    disabled={loading}
@@ -228,21 +229,22 @@ const LoginPage: React.FC = () => {
                            </form>
            </div>
          </div>
-       </div>
+        </div>
 
-       {/* 하단 앱 정보 */}
-       <div style={{ position: 'absolute', bottom: '20px', width: '100%', textAlign: 'center' }}>
-         <div style={{ paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
-           <p style={{ fontSize: '14px', color: '#6b7280' }}>
-             개인용 위스키 테이스팅 노트 앱
-           </p>
-           <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
-             버전 v{getAppVersion()}
-           </p>
-         </div>
-       </div>
+        {/* 하단 앱 정보 */}
+        <div className="w-full text-center mt-8 lg:mt-12 pb-8">
+          <div className="pt-8 border-t border-gray-200 max-w-2xl mx-auto px-4">
+            <p className="text-sm sm:text-base text-gray-600">
+              개인용 위스키 테이스팅 노트 앱
+            </p>
+            <p className="text-xs sm:text-sm text-gray-400 mt-1">
+              버전 v{getAppVersion()}
+            </p>
+          </div>
+        </div>
+      </div>
 
-     </div>
+    </div>
    );
  };
 

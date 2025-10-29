@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../stores';
+import { useAuthStore, usePageStateStore, useSettingsOverlayStore } from '../stores';
 import Input from './Input';
 import Button from './Button';
 
@@ -20,14 +20,23 @@ interface IMobileLayoutProps {
     enableFilters?: boolean;
     addButtonPath?: string;
   };
+  onSettingsClick?: () => void; // 설정 버튼 클릭 핸들러
+  onAddWhiskeyClick?: () => void; // 위스키 추가 버튼 클릭 핸들러
 }
 
-const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = '', onSearchChange, onSearchExecute, filterOptions, onResetFilters, searchVisible, onSearchVisibleChange, showSearchBar = true, categoryTabs, pageConfig }) => {
+const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = '', onSearchChange, onSearchExecute, filterOptions, onResetFilters, searchVisible, onSearchVisibleChange, showSearchBar = true, categoryTabs, pageConfig, onSettingsClick, onAddWhiskeyClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
+  const { saveScrollPosition, getScrollPosition } = usePageStateStore();
+  const { open: openSettings } = useSettingsOverlayStore();
   const [activeTab, setActiveTab] = useState('home');
   const [showSearch, setShowSearch] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isFirstVisit = useRef<Set<string>>(new Set());
+  
+  // 위스키 추가 버튼 클릭을 위한 이벤트 리스너는 제거
+  // (버튼 onClick에서 직접 처리하므로 불필요)
   
   // 외부에서 제어되는 showSearch
   const controlledShowSearch = searchVisible !== undefined ? searchVisible : showSearch;
@@ -44,10 +53,45 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
     if (onSearchChange) onSearchChange('');
   };
 
-  // 페이지 이동 시 스크롤을 상단으로 이동
+  // 페이지 이동 시 스크롤 위치 관리
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+    const path = location.pathname;
+    const savedPosition = getScrollPosition(path);
+    
+    // 스크롤 복원 또는 상단 이동
+    if (isFirstVisit.current.has(path)) {
+      // 이전에 방문한 페이지인 경우 저장된 스크롤 위치로 복원
+      const container = scrollContainerRef.current;
+      if (container) {
+        // PageWrapper의 display 변경이 완료되도록 약간의 지연 추가
+        setTimeout(() => {
+          container.scrollTop = savedPosition;
+        }, 150);
+      }
+    } else {
+      // 첫 방문인 경우 상단으로 이동
+      const container = scrollContainerRef.current;
+      if (container) {
+        setTimeout(() => {
+          container.scrollTop = 0;
+        }, 150);
+      }
+      isFirstVisit.current.add(path);
+    }
+  }, [location.pathname, getScrollPosition]);
+
+  // 스크롤 위치 저장
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const handleScroll = () => {
+      saveScrollPosition(location.pathname, container.scrollTop);
+    };
+    
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [location.pathname, saveScrollPosition]);
 
   // URL 경로와 탭 매핑
   useEffect(() => {
@@ -96,6 +140,34 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
   ];
 
   const handleNavigate = (path: string) => {
+    const currentPath = location.pathname;
+    
+    // 현재 경로와 같거나 (홈의 경우) 이미 홈 경로에 있으면 navigate하지 않음
+    if (currentPath === path || (path === '/mobile' && (currentPath === '/mobile' || currentPath === '/m'))) {
+      // 홈 페이지인 경우 저장된 스크롤 위치로 복원 (navigate하지 않으므로 useEffect가 실행되지 않으므로 수동으로 복원)
+      if (path === '/mobile' || path === '/m') {
+        const container = scrollContainerRef.current;
+        const savedPosition = getScrollPosition(path);
+        if (container) {
+          if (savedPosition > 0) {
+            // 저장된 스크롤 위치가 있으면 복원
+            setTimeout(() => {
+              if (container) {
+                container.scrollTop = savedPosition;
+              }
+            }, 100); // PageWrapper의 display 변경 후 복원
+          } else {
+            // 저장된 위치가 없으면 상단 유지
+            setTimeout(() => {
+              if (container) {
+                container.scrollTop = 0;
+              }
+            }, 100);
+          }
+        }
+      }
+      return;
+    }
     navigate(path);
   };
 
@@ -172,7 +244,13 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
             {/* 홈일 때 설정 버튼 */}
             {activeTab === 'home' && !isFormMode && (
               <button
-                onClick={() => navigate('/mobile/settings')}
+                onClick={() => {
+                  if (onSettingsClick) {
+                    onSettingsClick();
+                  } else {
+                    openSettings();
+                  }
+                }}
                 style={{
                   padding: '8px 12px',
                   borderRadius: '8px',
@@ -191,10 +269,40 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
             {(activeTab === 'whiskey' || activeTab === 'tasting' || activeTab === 'purchase' || activeTab === 'notes') && !isFormMode && (
               <button
                 onClick={() => {
-                  if (activeTab === 'whiskey') navigate('/mobile/whiskey/new');
-                  else if (activeTab === 'tasting') navigate('/mobile/tasting/new');
-                  else if (activeTab === 'purchase') navigate('/mobile/purchase/form');
-                  else if (activeTab === 'notes') navigate('/mobile/notes/form');
+                  if (activeTab === 'whiskey') {
+                    // prop을 확인하고, 없으면 이벤트 발생 (m_WhiskeyList에서 처리)
+                    if (onAddWhiskeyClick) {
+                      onAddWhiskeyClick();
+                    } else {
+                      // m_WhiskeyList에 이벤트 발생시켜서 처리하도록 함 (navigate 호출 안 함)
+                      const event = new CustomEvent('whiskeyAddClick', {
+                        detail: { processed: false },
+                        cancelable: true
+                      });
+                      window.dispatchEvent(event);
+                    }
+                  } else if (activeTab === 'tasting') {
+                    // 이벤트 발생 방식으로 처리 (m_TastingNotes에서 처리)
+                    const event = new CustomEvent('tastingAddClick', {
+                      detail: { processed: false },
+                      cancelable: true
+                    });
+                    window.dispatchEvent(event);
+                  } else if (activeTab === 'purchase') {
+                    // 이벤트 발생 방식으로 처리 (m_PurchaseHistory에서 처리)
+                    const event = new CustomEvent('purchaseAddClick', {
+                      detail: { processed: false },
+                      cancelable: true
+                    });
+                    window.dispatchEvent(event);
+                  } else if (activeTab === 'notes') {
+                    // 이벤트 발생 방식으로 처리 (m_PersonalNotes에서 처리)
+                    const event = new CustomEvent('noteAddClick', {
+                      detail: { processed: false },
+                      cancelable: true
+                    });
+                    window.dispatchEvent(event);
+                  }
                 }}
                 style={{
                   padding: '0',
@@ -212,26 +320,6 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
                 {activeTab === 'notes' && '+노트 추가'}
               </button>
             )}
-            {!isFormMode && activeTab !== 'home' && showSearchBar && (
-              <button
-                onClick={() => handleSetShowSearch(!controlledShowSearch)}
-                style={{
-                  padding: '4px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  fontSize: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '32px',
-                  height: '32px'
-                }}
-              >
-                🔍
-              </button>
-            )}
           </div>
         </div>
       </header>
@@ -245,10 +333,48 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
             left: 0,
             right: 0,
             backgroundColor: 'white',
-            zIndex: 20
+            zIndex: 20,
+            display: 'flex',
+            alignItems: 'center',
+            borderBottom: '2px solid #E5E7EB',
+            minHeight: '52px',
+            height: '52px'
           }}
         >
-          {categoryTabs}
+          <div style={{ flex: 1 }}>
+            {categoryTabs}
+          </div>
+          {/* 카테고리 탭 오른쪽 검색 버튼 - 검색바가 활성화될 때만 표시 */}
+          {showSearchBar && (
+            <div style={{ padding: '0 4px 0 0' }}>
+              <button
+                onClick={() => {
+                  if (onSearchExecute) {
+                    onSearchExecute();
+                  } else {
+                    handleSetShowSearch(!controlledShowSearch);
+                  }
+                }}
+                style={{
+                  padding: '6px 12px',
+                  border: 'none',
+                  backgroundColor: controlledShowSearch ? '#8B4513' : '#F9FAFB',
+                  color: controlledShowSearch ? 'white' : '#6B7280',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: '400',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🔍 검색
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -273,7 +399,7 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
         <div 
           style={{
             position: 'fixed',
-            top: categoryTabs ? '104px' : '56px', // 카테고리 탭이 있으면 104px, 없으면 56px
+            top: categoryTabs ? '108px' : '56px', // 카테고리 탭이 있으면 108px, 없으면 56px
             left: 0,
             right: 0,
             backgroundColor: 'white',
@@ -293,6 +419,11 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
               placeholder="검색..."
               value={searchValue}
               onChange={onSearchChange || (() => {})}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && onSearchExecute) {
+                  onSearchExecute();
+                }
+              }}
               showClearButton={true}
               style={{ 
                 flex: 1,
@@ -345,11 +476,13 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
 
       {/* 메인 콘텐츠 영역 */}
       <div 
+        ref={scrollContainerRef}
+        data-scroll-container
         style={{ 
           position: 'absolute',
           top: (() => {
             let topOffset = 56; // 헤더
-            if (categoryTabs) topOffset += 48; // 카테고리 탭
+            if (categoryTabs) topOffset += 52; // 카테고리 탭
             if (controlledShowSearch && showSearchBar) topOffset += 84; // 검색창
             return `${topOffset}px`;
           })(),

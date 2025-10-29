@@ -11,8 +11,7 @@ export async function crawlDailyshot(url: string): Promise<CrawledWhiskeyData | 
       headers: {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
+        // 'Accept-Encoding'과 'Connection'은 브라우저가 자동으로 관리하므로 제거
         'Upgrade-Insecure-Requests': '1',
       },
       timeout: 10000,
@@ -20,17 +19,6 @@ export async function crawlDailyshot(url: string): Promise<CrawledWhiskeyData | 
 
     const $ = cheerio.load(response.data);
 
-    // 디버깅: HTML 내용 확인
-    console.log('HTML 길이:', response.data.length);
-    console.log('Script 태그 개수:', $('script').length);
-    
-    // 첫 번째 script 태그 내용 확인
-    const firstScript = $('script').first().html();
-    if (firstScript) {
-      console.log('첫 번째 script 태그 길이:', firstScript.length);
-      console.log('첫 번째 script 태그 시작 부분:', firstScript.substring(0, 200));
-    }
-    
     // JSON 데이터에서 정보 추출 - 새로운 구조에 맞게 수정
     const jsonData = extractJsonData($);
     
@@ -40,26 +28,22 @@ export async function crawlDailyshot(url: string): Promise<CrawledWhiskeyData | 
     // 구조 1: dehydratedState.queries[0].state.data
     if (jsonData.dehydratedState?.queries?.[0]?.state?.data) {
       data = jsonData.dehydratedState.queries[0].state.data;
-      console.log('구조 1에서 데이터 발견:', Object.keys(data));
     }
     // 구조 2: props.pageProps
     else if (jsonData.props?.pageProps) {
       data = jsonData.props.pageProps;
-      console.log('구조 2에서 데이터 발견:', Object.keys(data));
     }
     // 구조 3: 직접 props
     else if (jsonData.props) {
       data = jsonData.props;
-      console.log('구조 3에서 데이터 발견:', Object.keys(data));
     }
     // 구조 4: 직접 jsonData
     else if (jsonData && typeof jsonData === 'object') {
       data = jsonData;
-      console.log('구조 4에서 데이터 발견:', Object.keys(data));
     }
     
     if (!data) {
-      console.error('데이터 구조를 찾을 수 없습니다. JSON 데이터:', jsonData);
+      console.error('크롤링 실패: 데이터 구조를 찾을 수 없습니다.');
       return null;
     }
 
@@ -161,8 +145,6 @@ function extractJsonData($: cheerio.CheerioAPI): any {
                 jsonData = JSON.parse(jsonMatch[0]);
               }
               
-              console.log('JSON 데이터 추출 성공:', Object.keys(jsonData));
-              
               // 다양한 구조에서 데이터 찾기
               if (jsonData.dehydratedState?.queries?.[0]?.state?.data) {
                 return jsonData;
@@ -177,7 +159,7 @@ function extractJsonData($: cheerio.CheerioAPI): any {
                 return jsonData;
               }
             } catch (e: any) {
-              console.log('JSON 파싱 실패, 다음 패턴 시도:', e.message);
+              // JSON 파싱 실패 시 다음 패턴 시도
               continue;
             }
           }
@@ -185,7 +167,7 @@ function extractJsonData($: cheerio.CheerioAPI): any {
       }
     }
     
-    console.log('JSON 데이터를 찾을 수 없습니다');
+    // JSON 데이터를 찾을 수 없음
     return {};
   } catch (error) {
     console.error('JSON 데이터 추출 오류:', error);

@@ -65,11 +65,12 @@ const CheckImageButton: React.FC<CheckImageButtonProps> = ({
     height: height ? `${height}px` : '56px',
     display: 'flex',
     flexDirection: 'row' as const,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'flex-start',
     gap: '6px',
     textAlign: 'left' as const,
-    position: 'relative' as const
+    position: 'relative' as const,
+    paddingTop: '8px'
   }), [checked, disabled, height]);
 
   const imageContainerStyle = useMemo(() => ({
@@ -132,7 +133,7 @@ const CheckImageButton: React.FC<CheckImageButtonProps> = ({
             backgroundSize: 'contain',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
-            opacity: 0.8,
+            opacity: 0.2,
             zIndex: 1,
             pointerEvents: 'none',
             borderRadius: '6px'
@@ -150,7 +151,6 @@ const CheckImageButton: React.FC<CheckImageButtonProps> = ({
             setImageLoaded(true);
           }}
           onError={() => {
-            console.log('이미지 로드 실패:', backgroundImage);
             setImageLoadError(true);
           }}
         />
@@ -195,7 +195,12 @@ const CheckImageButton: React.FC<CheckImageButtonProps> = ({
       </div>
 
       {/* 라벨 */}
-      <span style={labelStyle}>
+      <span style={{
+        ...labelStyle,
+        position: 'relative',
+        zIndex: 2,
+        textShadow: '0 1px 2px rgba(255, 255, 255, 0.8), 0 0 4px rgba(255, 255, 255, 0.5)'
+      }}>
         {label}
       </span>
 

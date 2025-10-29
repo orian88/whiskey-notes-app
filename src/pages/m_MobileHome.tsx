@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { getAppVersion } from '../utils/version';
+import MobileWhiskeyDetail from './m_WhiskeyDetail';
+import MobilePurchaseHistoryDetail from './m_PurchaseHistoryDetail';
+import MobileSettings from './m_Settings';
+import { useSettingsOverlayStore } from '../stores';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 interface IRecentTasting {
   id: string;
@@ -33,6 +38,9 @@ interface IRecentPurchase {
   store?: string;
 }
 
+// 홈 페이지 로드 상태를 모듈 레벨에서 관리 (컴포넌트 재마운트 시에도 유지)
+let homePageHasLoaded = false;
+
 const MobileHome: React.FC = () => {
   const navigate = useNavigate();
   const [recentTastings, setRecentTastings] = useState<IRecentTasting[]>([]);
@@ -55,10 +63,9 @@ const MobileHome: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryRankingMap, setCategoryRankingMap] = useState<Map<string, any[]>>(new Map());
-
-  useEffect(() => {
-    loadDataParallel();
-  }, []);
+  const [selectedWhiskeyId, setSelectedWhiskeyId] = useState<string | null>(null);
+  const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
+  const { isOpen: showSettings, open: openSettings, close: closeSettings } = useSettingsOverlayStore();
 
   // 슬라이더 자동 전환
   useEffect(() => {
@@ -69,22 +76,6 @@ const MobileHome: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [recentTastings.length]);
-
-  // 병렬 로드 - 각 섹션을 독립적으로 로드
-  const loadDataParallel = async () => {
-    setLoading(true);
-    
-    // 모든 섹션을 병렬로 시작
-    Promise.all([
-      loadTastingsSlider(),
-      loadStats(),
-      loadTodayPicks(),
-      loadCategoryRankingData(),
-      loadRecentPurchases()
-    ]).finally(() => {
-      setLoading(false);
-    });
-  };
 
   // 슬라이더 이미지 데이터 로드
   const loadTastingsSlider = async () => {
@@ -445,6 +436,45 @@ const MobileHome: React.FC = () => {
     }
   };
 
+  // 병렬 로드 - 각 섹션을 독립적으로 로드
+  const loadDataParallel = useCallback(async () => {
+    setLoading(true);
+    
+    // 모든 섹션을 병렬로 시작
+    Promise.all([
+      loadTastingsSlider(),
+      loadStats(),
+      loadTodayPicks(),
+      loadCategoryRankingData(),
+      loadRecentPurchases()
+    ]).finally(() => {
+      setLoading(false);
+    });
+  }, []);
+
+  // Pull-to-refresh 훅
+  const { bindEvents, isRefreshing, refreshIndicatorStyle } = usePullToRefresh({
+    onRefresh: loadDataParallel,
+    threshold: 80
+  });
+
+  // 스크롤 컨테이너에 pull-to-refresh 이벤트 바인딩
+  useEffect(() => {
+    const scrollContainer = document.querySelector('[data-scroll-container]') as HTMLElement;
+    if (scrollContainer) {
+      const cleanup = bindEvents(scrollContainer);
+      return cleanup;
+    }
+  }, [bindEvents]);
+
+  // 초기 로드만 한 번 실행 (재방문 시 로드하지 않음)
+  useEffect(() => {
+    if (!homePageHasLoaded) {
+      loadDataParallel();
+      homePageHasLoaded = true;
+    }
+  }, [loadDataParallel]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -800,11 +830,6 @@ const MobileHome: React.FC = () => {
       // 초기 카테고리 설정
       const initialRanking = rankingMap.get('전체') || [];
       setCategoryRanking(initialRanking);
-      
-      console.log('카테고리 랭킹 로드 완료:', {
-        전체: initialRanking.length,
-        카테고리별: Array.from(rankingMap.entries()).map(([k, v]) => `${k}: ${v.length}`)
-      });
     } catch (error) {
       console.error('전체 카테고리 랭킹 로드 오류:', error);
     }
@@ -833,6 +858,90 @@ const MobileHome: React.FC = () => {
   }, [recentTastings.length]);
 
   return (
+    <>
+      {/* 설정 오버레이 */}
+      {showSettings && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          pointerEvents: 'auto'
+        }}>
+          <SettingsWrapper onClose={closeSettings} />
+        </div>
+      )}
+
+      {/* 위스키 상세보기 오버레이 */}
+      {selectedWhiskeyId && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9998,
+          pointerEvents: 'auto'
+        }}>
+          <WhiskeyDetailWrapper whiskeyId={selectedWhiskeyId} onClose={() => setSelectedWhiskeyId(null)} />
+        </div>
+      )}
+
+      {/* 구매 상세보기 오버레이 */}
+      {selectedPurchaseId && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9998,
+          pointerEvents: 'auto'
+        }}>
+          <PurchaseDetailWrapper purchaseId={selectedPurchaseId} onClose={() => setSelectedPurchaseId(null)} />
+        </div>
+      )}
+
+      {/* Pull-to-refresh 인디케이터 */}
+      <div style={{
+        position: 'fixed',
+        top: '60px',
+        left: '50%',
+        zIndex: 1001,
+        ...refreshIndicatorStyle,
+        transform: refreshIndicatorStyle.transform ? `${refreshIndicatorStyle.transform} translateX(-50%)` : 'translateX(-50%)'
+      }}>
+        <div style={{
+          backgroundColor: 'rgba(139, 69, 19, 0.9)',
+          color: 'white',
+          padding: '8px 16px',
+          borderRadius: '20px',
+          fontSize: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+        }}>
+          {isRefreshing ? (
+            <>
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '2px solid white',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                animation: 'spin 0.6s linear infinite'
+              }} />
+              <span>새로고침 중...</span>
+            </>
+          ) : (
+            <span>⬇️ 아래로 당겨서 새로고침</span>
+          )}
+        </div>
+      </div>
+
     <div style={{ padding: '0', backgroundColor: '#f9fafb', minHeight: '100vh', overflow: 'hidden' }}>
       {/* Title 이미지와 검색 영역 */}
       <div style={{
@@ -1071,7 +1180,7 @@ const MobileHome: React.FC = () => {
               color: 'white',
               position: 'relative'
             }}>
-              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>등록된 위스키</div>
+              <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px' }}>위스키 정보</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalWhiskeys}</div>
               <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>🥃</div>
             </Card>
@@ -1081,7 +1190,7 @@ const MobileHome: React.FC = () => {
               color: 'white',
               position: 'relative'
             }}>
-              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>테이스팅</div>
+              <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px' }}>테이스팅</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalTastings}</div>
               <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>👅</div>
             </Card>
@@ -1091,7 +1200,7 @@ const MobileHome: React.FC = () => {
               color: 'white',
               position: 'relative'
             }}>
-              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>구매</div>
+              <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px' }}>구매</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalPurchases}</div>
               <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>💰</div>
             </Card>
@@ -1101,7 +1210,7 @@ const MobileHome: React.FC = () => {
               color: 'white',
               position: 'relative'
             }}>
-              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>평점</div>
+              <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px' }}>평점</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.avgRating}</div>
               <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '28px' }}>⭐</div>
             </Card>
@@ -1223,7 +1332,7 @@ const MobileHome: React.FC = () => {
                   cursor: 'pointer',
                   scrollSnapAlign: 'start'
                 }}
-                onClick={() => navigate(`/mobile/whiskey/${pick.id}`)}
+                onClick={() => setSelectedWhiskeyId(pick.id)}
               >
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
@@ -1348,7 +1457,7 @@ const MobileHome: React.FC = () => {
                     opacity: 0,
                     animationDelay: `${index * 0.05}s`
                   }}
-                  onClick={() => navigate(`/mobile/whiskeys/${whiskey.id}`)}
+                  onClick={() => setSelectedWhiskeyId(whiskey.id)}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                 >
@@ -1472,7 +1581,7 @@ const MobileHome: React.FC = () => {
                   cursor: 'pointer',
                   transition: 'background-color 0.2s'
                 }}
-                onClick={() => navigate(`/mobile/purchase/${purchase.id}`)}
+                onClick={() => setSelectedPurchaseId(purchase.id)}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
               >
@@ -1533,7 +1642,23 @@ const MobileHome: React.FC = () => {
         ) : null}
       </div>
     </div>
+    </>
   );
+};
+
+// 위스키 상세보기 오버레이 래퍼
+const WhiskeyDetailWrapper: React.FC<{ whiskeyId: string; onClose: () => void }> = ({ whiskeyId, onClose }) => {
+  return <MobileWhiskeyDetail id={whiskeyId} onClose={onClose} />;
+};
+
+// 구매 상세보기 오버레이 래퍼
+const PurchaseDetailWrapper: React.FC<{ purchaseId: string; onClose: () => void }> = ({ purchaseId, onClose }) => {
+  return <MobilePurchaseHistoryDetail id={purchaseId} onClose={onClose} />;
+};
+
+// 설정 오버레이 래퍼
+const SettingsWrapper: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  return <MobileSettings onClose={onClose} />;
 };
 
 export default MobileHome;

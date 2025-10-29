@@ -7,8 +7,9 @@ import Input from '../components/Input';
 import MobileLayout from '../components/MobileLayout';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
-import TastingModal from '../components/TastingModal';
 import SwipeableCard from '../components/SwipeableCard';
+import MobileTastingNotesDetail from './m_TastingNotesDetail';
+import MobileTastingNotesForm from './m_TastingNotesForm';
 
 // 디바운스 훅
 const useDebounce = (value: string, delay: number) => {
@@ -71,6 +72,9 @@ const MobileTastingNotes: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedTastingId, setSelectedTastingId] = useState<string | null>(null);
+  const [showTastingForm, setShowTastingForm] = useState(false);
+  const [editingTastingId, setEditingTastingId] = useState<string | null>(null);
+  const formOpenedByStateRef = useRef(false);
 
   const loadData = React.useCallback(async (skipLoading = false) => {
     try {
@@ -145,16 +149,7 @@ const MobileTastingNotes: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 목록으로 돌아왔을 때 스크롤 위치 복원
-  useEffect(() => {
-    const savedScroll = sessionStorage.getItem('tastingListScroll');
-    if (savedScroll && location.pathname === '/mobile/tasting-notes') {
-      setTimeout(() => {
-        window.scrollTo(0, parseInt(savedScroll));
-        sessionStorage.removeItem('tastingListScroll');
-      }, 150);
-    }
-  }, [location.pathname]);
+  // 스크롤 위치는 조건부 렌더링으로 자동 유지되므로 별도 복원 불필요
 
   const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
     onRefresh: handleRefresh,
@@ -217,12 +212,31 @@ const MobileTastingNotes: React.FC = () => {
   // 무한 스크롤 비활성화 (더보기 버튼 사용)
 
   const handleTastingClick = (tastingId: string) => {
+    // 라우트를 변경하지 않고 상태로 상세 페이지 표시
     setSelectedTastingId(tastingId);
   };
 
   const handleNewTasting = () => {
-    navigate('/mobile/tasting/new');
+    formOpenedByStateRef.current = true;
+    setShowTastingForm(true);
+    setEditingTastingId(null);
   };
+
+  // 테이스팅 추가 버튼 클릭 이벤트 리스너 (MobileLayout에서 발생)
+  useEffect(() => {
+    const handleTastingAddClick = (e: Event) => {
+      if ((e as CustomEvent).detail?.processed) {
+        return;
+      }
+      e.stopPropagation();
+      handleNewTasting();
+    };
+    
+    window.addEventListener('tastingAddClick', handleTastingAddClick);
+    return () => {
+      window.removeEventListener('tastingAddClick', handleTastingAddClick);
+    };
+  }, []);
 
   // 삭제 핸들러
   const handleDeleteTasting = useCallback(async (tastingId: string) => {
@@ -250,8 +264,35 @@ const MobileTastingNotes: React.FC = () => {
 
   // 수정 핸들러
   const handleEditTasting = useCallback((tastingId: string) => {
-    navigate(`/mobile/tasting-notes/${tastingId}`);
-  }, [navigate]);
+    formOpenedByStateRef.current = true;
+    setEditingTastingId(tastingId);
+    setShowTastingForm(true);
+  }, []);
+
+  // 위스키 목록 새로고침 함수
+  const refreshTastingList = useCallback(async () => {
+    await loadData();
+  }, [loadData]);
+
+  // 라우터 경로 확인하여 테이스팅 폼 오버레이 표시
+  useEffect(() => {
+    if (formOpenedByStateRef.current) {
+      return;
+    }
+    
+    if (location.pathname === '/mobile/tasting/new') {
+      setShowTastingForm(true);
+      setEditingTastingId(null);
+      navigate('/mobile/tasting-notes', { replace: true });
+    } else if (location.pathname.match(/^\/mobile\/tasting-notes\/(.+)$/)) {
+      const match = location.pathname.match(/^\/mobile\/tasting-notes\/(.+)$/);
+      if (match) {
+        setShowTastingForm(true);
+        setEditingTastingId(match[1]);
+        navigate('/mobile/tasting-notes', { replace: true });
+      }
+    }
+  }, [location.pathname, navigate]);
 
   if (isInitialLoading) {
     return (
@@ -327,9 +368,39 @@ const MobileTastingNotes: React.FC = () => {
 
   return (
     <>
-      {/* 테이스팅 상세보기 모달 */}
+      {/* 테이스팅 상세보기 오버레이 - 독립된 레이어로 표시 */}
       {selectedTastingId && (
-        <TastingModal tastingId={selectedTastingId} onClose={() => setSelectedTastingId(null)} />
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          pointerEvents: 'auto'
+        }}>
+          <DetailOverlayWrapper 
+            tastingId={selectedTastingId}
+            onClose={() => setSelectedTastingId(null)} 
+          />
+        </div>
+      )}
+
+      {/* 테이스팅 추가/수정 오버레이 */}
+      {showTastingForm && (
+        <MobileTastingNotesFormWrapper
+          tastingId={editingTastingId || undefined}
+          onClose={() => {
+            formOpenedByStateRef.current = false;
+            setShowTastingForm(false);
+            setEditingTastingId(null);
+          }}
+          onSuccess={() => {
+            refreshTastingList();
+            setShowTastingForm(false);
+            setEditingTastingId(null);
+          }}
+        />
       )}
 
       <MobileLayout
@@ -348,6 +419,7 @@ const MobileTastingNotes: React.FC = () => {
         }}
         searchVisible={showSearch}
         onSearchVisibleChange={setShowSearch}
+        showSearchBar={true}
       >
       <div 
         ref={(el) => {
@@ -363,16 +435,41 @@ const MobileTastingNotes: React.FC = () => {
           style={refreshIndicatorStyle}
         />
         
-        {/* 개수 표시 */}
+        {/* 개수 표시 및 검색 버튼 */}
         <div style={{ 
           padding: '12px 16px', 
           backgroundColor: 'white', 
           borderBottom: '1px solid #E5E7EB',
-          fontSize: '14px',
-          fontWeight: '600',
-          color: '#1F2937'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
         }}>
-          테이스팅 노트 ({filteredAndSortedTastings.length}개)
+          <div style={{
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#1F2937'
+          }}>
+            테이스팅 노트 ({filteredAndSortedTastings.length}개)
+          </div>
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            style={{
+              padding: '6px 12px',
+              border: 'none',
+              backgroundColor: showSearch ? '#8B4513' : '#F9FAFB',
+              color: showSearch ? 'white' : '#6B7280',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            🔍 검색
+          </button>
         </div>
 
         {/* 필터 상태 표시 */}
@@ -438,13 +535,14 @@ const MobileTastingNotes: React.FC = () => {
         ) : (
           <div ref={containerRef} style={{ backgroundColor: 'white', height: '100%', overflowY: 'visible', padding: '4px', gap: '4px' }}>
             {displayedTastings.map((tasting, index) => (
+              <div key={tasting.id}>
               <SwipeableCard
-                key={tasting.id}
+                cardId={`tasting-${tasting.id}`}
                 onEdit={() => handleEditTasting(tasting.id)}
                 onDelete={() => handleDeleteTasting(tasting.id)}
                 editLabel="수정"
                 deleteLabel="삭제"
-                style={{ marginBottom: '4px', backgroundColor: 'white' }}
+                style={{ marginBottom: '0', backgroundColor: 'white', borderBottom: index < displayedTastings.length - 1 ? '1px solid #E5E7EB' : 'none' }}
               >
                 <div
                   onClick={() => handleTastingClick(tasting.id)}
@@ -580,6 +678,7 @@ const MobileTastingNotes: React.FC = () => {
                 </div>
               </div>
                 </SwipeableCard>
+              </div>
             ))}
             {/* 더보기 버튼 */}
             {hasMore && displayedTastings.length > 0 && (
@@ -611,5 +710,101 @@ const MobileTastingNotes: React.FC = () => {
   );
 };
 
+
+// 상세보기를 위한 래퍼 - useParams를 대체
+const DetailOverlayWrapper: React.FC<{ tastingId: string; onClose: () => void }> = ({ tastingId, onClose }) => {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 9999,
+      pointerEvents: 'auto'
+    }}>
+      <MobileTastingNotesDetailWrapper tastingId={tastingId} onClose={onClose} />
+    </div>
+  );
+};
+
+// useParams를 사용하지 않는 래퍼 컴포넌트
+const MobileTastingNotesDetailWrapper: React.FC<{ tastingId: string; onClose: () => void }> = ({ tastingId, onClose }) => {
+  // props로 id를 직접 전달
+  return <MobileTastingNotesDetail id={tastingId} onClose={onClose} />;
+};
+
+// 테이스팅 폼 오버레이 래퍼
+const MobileTastingNotesFormWrapper: React.FC<{ 
+  tastingId?: string; 
+  onClose: () => void; 
+  onSuccess: () => void;
+}> = ({ tastingId, onClose, onSuccess }) => {
+  const [isEntering, setIsEntering] = useState(true);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 마운트 시 애니메이션 (오른쪽 화면 밖에서 왼쪽으로 슬라이드 인)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 10);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 슬라이드 상태 계산: 진입 중 또는 나가는 중이면 translateX 적용
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)'; // 오른쪽으로 슬라이드 아웃
+    if (isEntering) return 'translateX(100%)'; // 처음엔 오른쪽에 위치
+    return 'translateX(0)'; // 중앙 위치
+  };
+
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      onClose();
+    }, 300);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 10000,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch'
+      }}
+    >
+      <MobileTastingNotesFormWithProps 
+        tastingId={tastingId}
+        onClose={handleClose}
+        onSuccess={onSuccess}
+      />
+    </div>
+  );
+};
+
+// 폼 컴포넌트에 props 전달을 위한 래퍼
+const MobileTastingNotesFormWithProps: React.FC<{
+  tastingId?: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ tastingId, onClose, onSuccess }) => {
+  return (
+    <MobileTastingNotesForm 
+      tastingId={tastingId}
+      onClose={onClose}
+      onSuccess={onSuccess}
+    />
+  );
+};
 
 export default MobileTastingNotes;

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
+import MobilePurchaseHistoryForm from './m_PurchaseHistoryForm';
 
 interface IPurchaseDetail {
   id: string;
@@ -39,12 +41,31 @@ interface IPurchaseDetail {
   };
 }
 
-const MobilePurchaseHistoryDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface MobilePurchaseHistoryDetailProps {
+  id?: string;
+  onClose?: () => void;
+}
+
+const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = ({ id: propId, onClose }) => {
+  const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const id = propId || paramId;
   const [purchase, setPurchase] = useState<IPurchaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [recentPrice, setRecentPrice] = useState<number | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
+  
+  // 슬라이드 애니메이션 상태
+  const [isEntering, setIsEntering] = useState(true);
+  const [isLeaving, setIsLeaving] = useState(false);
+  
+  useEffect(() => {
+    // 마운트 시 슬라이드 인 애니메이션
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 10);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -112,12 +133,29 @@ const MobilePurchaseHistoryDetail: React.FC = () => {
 
         if (error) throw error;
 
-        navigate('/mobile/purchase');
+        handleClose();
       } catch (error) {
         console.error('삭제 오류:', error);
         alert('삭제 중 오류가 발생했습니다.');
       }
     }
+  };
+
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      if (onClose) {
+        onClose();
+      } else {
+        navigate('/mobile/purchase');
+      }
+    }, 300);
+  };
+
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)';
+    if (isEntering) return 'translateX(100%)';
+    return 'translateX(0)';
   };
 
   if (loading) {
@@ -156,56 +194,48 @@ const MobilePurchaseHistoryDetail: React.FC = () => {
     return '100만원 이상';
   };
 
-  return (
-    <div style={{ padding: '16px', paddingBottom: '20px', backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
-      {/* 상단 고정 닫기 버튼 */}
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          position: 'fixed',
-          top: '80px',
-          right: '16px',
-          width: '44px',
-          height: '44px',
-          borderRadius: '50%',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          border: 'none',
-          color: 'white',
-          fontSize: '24px',
-          cursor: 'pointer',
-          zIndex: 100,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+  const content = (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#F9FAFB',
+        zIndex: 9999,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflow: 'hidden'
+      }}
+    >
+      {/* Fixed Header */}
+      <header 
+        style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, height: '56px',
+          backgroundColor: 'white', borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)', zIndex: 1001,
+          display: 'flex', alignItems: 'center', padding: '0 16px'
         }}
       >
-        ×
-      </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <button onClick={handleClose} style={{ 
+            background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', padding: '4px' 
+          }}>←</button>
+          <div style={{ flex: 1, fontSize: '18px', fontWeight: 600, color: '#1f2937', textAlign: 'center' }}>구매 상세</div>
+          <div style={{ width: '32px' }}></div>
+        </div>
+      </header>
+      
+      {/* Scrollable Content Area */}
+      <div style={{
+        position: 'absolute', top: '56px', left: 0, right: 0, bottom: 0,
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch'
+      }}>
+      <div style={{ padding: '16px', paddingBottom: '20px', backgroundColor: '#F9FAFB' }}>
+      
+      {/* 기존 버튼 제거됨 */}
 
-      {/* 하단 고정 목록으로 버튼 */}
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          border: 'none',
-          color: 'white',
-          padding: '12px 24px',
-          borderRadius: '24px',
-          fontSize: '14px',
-          fontWeight: '500',
-          cursor: 'pointer',
-          zIndex: 100,
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
-          whiteSpace: 'nowrap'
-        }}
-      >
-        ← 목록으로
-      </button>
       {/* 위스키 정보 카드 */}
       <div style={{
           padding: '16px',
@@ -655,10 +685,113 @@ const MobilePurchaseHistoryDetail: React.FC = () => {
         </div>
       )}
       
-      <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-        <Button variant="primary" size="sm" onClick={() => navigate(-1)} style={{ flex: 1, backgroundColor: '#1F2937', color: '#FFFFFF' }}>목록으로</Button>
-        <Button variant="danger" size="sm" onClick={handleDelete} style={{ flex: 1, backgroundColor: '#DC2626', color: '#FFFFFF' }}>삭제</Button>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', marginBottom: '80px' }}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            // 수정 폼 열기 (상세보기는 유지)
+            setShowEditForm(true);
+          }}
+          style={{ flex: 1, fontSize: '12px' }}
+        >
+          수정
+        </Button>
+        <Button
+          variant="danger"
+          onClick={handleDelete}
+          style={{ flex: 1, fontSize: '12px' }}
+        >
+          삭제
+        </Button>
       </div>
+      </div>
+      </div>
+    </div>
+  );
+
+  // Portal을 사용하여 body에 직접 렌더링 (최상위 레이어 보장)
+  return (
+    <>
+      {typeof document !== 'undefined' 
+        ? createPortal(content, document.body)
+        : content}
+      {typeof document !== 'undefined' && showEditForm
+        ? createPortal(
+            <PurchaseFormWithAnimation
+              purchaseId={id || undefined}
+              onClose={() => {
+                // 폼만 닫기 (상세보기는 유지)
+                setShowEditForm(false);
+              }}
+              onSuccess={() => {
+                // 저장 성공 시 상세보기 데이터 다시 로드
+                if (id) {
+                  loadPurchaseDetail(id);
+                }
+                // 목록 새로고침을 위한 이벤트도 발생
+                window.dispatchEvent(new CustomEvent('purchaseListRefresh'));
+                // 폼 닫기
+                setShowEditForm(false);
+              }}
+            />,
+            document.body
+          )
+        : null}
+    </>
+  );
+};
+
+// 수정 폼 애니메이션 래퍼
+const PurchaseFormWithAnimation: React.FC<{
+  purchaseId?: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ purchaseId, onClose, onSuccess }) => {
+  const [isEntering, setIsEntering] = useState(true);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsEntering(false), 10);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 슬라이드 상태 계산: 진입 중 또는 나가는 중이면 translateX 적용
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)'; // 오른쪽으로 슬라이드 아웃
+    if (isEntering) return 'translateX(100%)'; // 처음엔 오른쪽에 위치
+    return 'translateX(0)'; // 중앙 위치
+  };
+
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      onClose();
+    }, 300);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 100000, // 상세보기(9999)보다 위에 표시
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch'
+      }}
+    >
+      <MobilePurchaseHistoryForm
+        purchaseId={purchaseId}
+        onClose={handleClose}
+        onSuccess={onSuccess}
+      />
     </div>
   );
 };

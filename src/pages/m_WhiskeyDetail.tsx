@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
 import MobileLayout from '../components/MobileLayout';
 import { getPriceRange, getCurrentExchangeRate, convertKrwToUsd, getPriceHistory, getPriceCardColor, getPriceBorderColor } from '../utils/priceCollector';
+import MobileWhiskeyForm from './m_WhiskeyForm';
 
 interface IWhiskeyDetail {
   id: string;
@@ -24,14 +26,41 @@ interface IWhiskeyDetail {
   is_favorite?: boolean;
 }
 
-const MobileWhiskeyDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface MobileWhiskeyDetailProps {
+  id?: string;
+  onClose?: () => void;
+}
+
+const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, onClose }) => {
+  const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // "new"나 "edit" 같은 문자열을 ID로 사용하지 않음
+  const rawId = propId || paramId;
+  const id = (rawId && rawId !== 'new' && !rawId.includes('edit')) ? rawId : undefined;
+  
+  console.log('[MobileWhiskeyDetail] 렌더링');
+  console.log('[MobileWhiskeyDetail] propId:', propId);
+  console.log('[MobileWhiskeyDetail] paramId:', paramId);
+  console.log('[MobileWhiskeyDetail] 최종 id:', id);
   const [whiskey, setWhiskey] = useState<IWhiskeyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'description' | 'price' | 'register'>('description');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  
+  // 슬라이드 애니메이션 상태
+  const [isEntering, setIsEntering] = useState(true);
+  const [isLeaving, setIsLeaving] = useState(false);
+  
+  useEffect(() => {
+    // 마운트 시 슬라이드 인 애니메이션
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 10);
+    return () => clearTimeout(timer);
+  }, []);
   
   // 상위 페이지에서 전달된 activeTab 정보 읽기 (목록/카트)
   const sourceTab = (location.state as any)?.activeTab || 'list';
@@ -45,9 +74,15 @@ const MobileWhiskeyDetail: React.FC = () => {
   const [isSavingPrice, setIsSavingPrice] = useState(false);
 
   useEffect(() => {
-    if (id) {
+    // id가 유효한 경우에만 데이터 로드 ("new", "edit" 등은 제외)
+    if (id && id !== 'new' && !id.includes('edit')) {
+      console.log('[MobileWhiskeyDetail] 유효한 id로 데이터 로드 시작:', id);
       loadData();
       loadPriceHistories();
+    } else {
+      console.log('[MobileWhiskeyDetail] 유효하지 않은 id:', id, '- 데이터 로드 스킵');
+      setLoading(false);
+      setWhiskey(null);
     }
   }, [id]);
 
@@ -228,92 +263,145 @@ const MobileWhiskeyDetail: React.FC = () => {
 
       if (error) throw error;
       
-      navigate('/mobile/whiskeys');
+      handleClose();
     } catch (error) {
       console.error('삭제 오류:', error);
       alert('삭제에 실패했습니다.');
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div>로딩 중...</div>
-      </div>
-    );
-  }
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      if (onClose) {
+        onClose();
+      } else {
+        navigate('/mobile/whiskeys');
+      }
+    }, 300);
+  };
 
-  if (!whiskey) {
-    return (
-      <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+  const getSlideTransform = () => {
+    if (isLeaving) return 'translateX(100%)';
+    if (isEntering) return 'translateX(100%)';
+    return 'translateX(0)';
+  };
+
+  // 로딩 오버레이 (상세보기 내용보다 위에 표시)
+  const loadingOverlay = loading ? (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      zIndex: 100000,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      pointerEvents: 'auto'
+    }}>
+      <div style={{
+        fontSize: '16px',
+        color: '#6B7280',
+        fontWeight: 500
+      }}>로딩 중...</div>
+    </div>
+  ) : null;
+
+  if (!whiskey && !loading) {
+    const noWhiskeyContent = (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white',
+          zIndex: 99999,
+          transition: 'transform 0.3s ease-out',
+          transform: getSlideTransform(),
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '40px 16px',
+          textAlign: 'center'
+        }}
+      >
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>🥃</div>
         <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
           위스키 정보를 찾을 수 없습니다
         </div>
-        <Button variant="primary" onClick={() => navigate('/mobile/whiskeys')}>
+        <Button variant="primary" onClick={handleClose}>
           목록으로
         </Button>
       </div>
     );
+    return typeof document !== 'undefined' 
+      ? createPortal(noWhiskeyContent, document.body)
+      : noWhiskeyContent;
   }
 
-  return (
-    <MobileLayout>
-    <div style={{ padding: '16px', backgroundColor: 'white', minHeight: '100vh' }}>
-      {/* 상단 고정 닫기 버튼 */}
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          position: 'fixed',
-          top: '80px',
-          right: '16px',
-          width: '44px',
-          height: '44px',
-          borderRadius: '50%',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          border: 'none',
-          color: 'white',
-          fontSize: '24px',
-          cursor: 'pointer',
-          zIndex: 100,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
-        }}
-      >
-        ×
-      </button>
+  // 로딩 중이면 오버레이만 표시하고 content는 렌더링하지 않음
+  if (loading) {
+    return typeof document !== 'undefined' 
+      ? createPortal(loadingOverlay, document.body)
+      : loadingOverlay;
+  }
 
-      {/* 하단 고정 목록으로 버튼 */}
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          border: 'none',
-          color: 'white',
-          padding: '12px 24px',
-          borderRadius: '24px',
-          fontSize: '14px',
-          fontWeight: '500',
-          cursor: 'pointer',
-          zIndex: 100,
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
-          whiteSpace: 'nowrap'
+  // loading이 false이고 whiskey가 없으면 이미 return했으므로, 여기서는 whiskey가 반드시 존재
+  if (!whiskey) return null;
+
+  const content = (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 99999,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflow: 'hidden'
+      }}
+    >
+      {/* Fixed Header */}
+      <header 
+        style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, height: '56px',
+          backgroundColor: 'white', borderBottom: '1px solid #e5e7eb',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)', zIndex: 1001,
+          display: 'flex', alignItems: 'center', padding: '0 16px'
         }}
       >
-        ← 목록으로
-      </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <button onClick={handleClose} style={{ 
+            background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', padding: '4px' 
+          }}>←</button>
+          <div style={{ flex: 1, fontSize: '18px', fontWeight: 600, color: '#1f2937', textAlign: 'center' }}>위스키 상세</div>
+          <div style={{ width: '32px' }}></div>
+        </div>
+      </header>
+      
+      {/* Scrollable Content Area */}
+      <div style={{
+        position: 'absolute', top: '56px', left: 0, right: 0, bottom: 0,
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch'
+      }}>
+      <div style={{ padding: '16px', backgroundColor: 'white' }}>
 
       {/* 이미지 */}
       <div style={{
         width: '100%',
         height: '300px',
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#ffffff',
         borderRadius: '12px',
         display: 'flex',
         alignItems: 'center',
@@ -816,17 +904,13 @@ const MobileWhiskeyDetail: React.FC = () => {
       </div>
 
       {/* 버튼 */}
-      <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-        <Button 
-          variant="primary" 
-          onClick={() => navigate('/mobile/whiskey/new')}
-          style={{ flex: 1 }}
-        >
-          새 글 추가
-        </Button>
+      <div style={{ display: 'flex', gap: '12px', marginTop: '32px', marginBottom: '80px' }}>
         <Button 
           variant="secondary" 
-          onClick={() => navigate(`/mobile/whiskey/${id}/edit`)}
+          onClick={() => {
+            // 수정 폼 열기 (상세보기는 유지)
+            setShowEditForm(true);
+          }}
           style={{ flex: 1 }}
         >
           수정
@@ -839,8 +923,41 @@ const MobileWhiskeyDetail: React.FC = () => {
           삭제
         </Button>
       </div>
+      </div>
+      </div>
     </div>
-    </MobileLayout>
+  );
+
+  // 수정 폼 오버레이 (상세보기보다 위에 표시)
+  const editFormOverlay = showEditForm ? (
+    <MobileWhiskeyForm
+      id={id}
+      onClose={() => {
+        // 폼만 닫기 (상세보기는 유지)
+        setShowEditForm(false);
+      }}
+      onSuccess={() => {
+        // 저장 성공 시 상세보기 데이터 다시 로드
+        if (id) {
+          loadData();
+          loadPriceHistories();
+        }
+        // 목록 새로고침을 위한 이벤트도 발생
+        window.dispatchEvent(new CustomEvent('whiskeyListRefresh'));
+        // 폼 닫기
+        setShowEditForm(false);
+      }}
+    />
+  ) : null;
+
+  // Portal을 사용하여 body에 직접 렌더링 (최상위 레이어 보장)
+  return (
+    <>
+      {typeof document !== 'undefined' 
+        ? createPortal(content, document.body)
+        : content}
+      {editFormOverlay}
+    </>
   );
 };
 
