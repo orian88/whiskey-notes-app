@@ -339,6 +339,9 @@ a:hover {
   font-size: 0.875rem;
   height: 44px;
   box-sizing: border-box;
+  font-family: inherit;
+  min-height: 44px;
+  max-height: 44px;
 }
 
 .input:focus {

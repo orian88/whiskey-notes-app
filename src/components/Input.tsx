@@ -69,23 +69,27 @@ const Input: React.FC<IInputProps> = ({
             🔍
           </span>
         )}
-        <input
-          ref={inputRef}
-          type={type}
-          placeholder={placeholder}
-          defaultValue={value}
-          onInput={handleInput}
-          onKeyDown={onKeyDown}
-          required={required}
-          disabled={disabled}
-          style={{
-            ...style,
-            paddingLeft: showSearchIcon ? '40px' : style?.paddingLeft || '12px',
-            paddingRight: showClearButton ? '40px' : style?.paddingRight || '12px'
-          }}
-          step={step}
-          className={`input ${className}`}
-        />
+      <input
+        ref={inputRef}
+        type={type}
+        placeholder={placeholder}
+        defaultValue={value}
+        onInput={handleInput}
+        onKeyDown={onKeyDown}
+        required={required}
+        disabled={disabled}
+        style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          fontSize: style?.fontSize || '14px',
+          fontFamily: 'inherit',
+          ...style,
+          paddingLeft: showSearchIcon ? '40px' : style?.paddingLeft || '12px',
+          paddingRight: showClearButton ? '40px' : style?.paddingRight || '12px'
+        }}
+        step={step}
+        className={`input ${className}`}
+      />
         {showClearButton && value && value.length > 0 && (
           <button
             type="button"
@@ -150,6 +154,10 @@ const Input: React.FC<IInputProps> = ({
         required={required}
         disabled={disabled}
         style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          fontSize: style?.fontSize || '14px',
+          fontFamily: 'inherit',
           ...style,
           paddingLeft: showSearchIcon ? '40px' : style?.paddingLeft || '12px'
         }}

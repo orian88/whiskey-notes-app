@@ -25,6 +25,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
+  const [currentTranslateX, setCurrentTranslateX] = useState(0);
   const [shouldSlideBack, setShouldSlideBack] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const { setCardOpen, isCardOpen, closeAllCards } = usePageStateStore();
@@ -64,39 +65,50 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   // 드래그 시작
   const handleTouchStart = (e: React.TouchEvent) => {
     e.stopPropagation();
-    setIsDragging(true);
+    // 현재 translateX 위치를 기준으로 시작
+    setCurrentTranslateX(translateX);
     setStartX(e.touches[0].clientX);
+    setIsDragging(true);
+    setShouldSlideBack(false);
   };
 
   // 드래그 중
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
     
-    const currentX = e.touches[0].clientX;
-    const diffX = startX - currentX;
+    e.preventDefault(); // 기본 스크롤 동작 방지
     
-    // 오른쪽으로 스와이프만 허용 (translateX는 음수 값)
-    if (diffX > 0) {
-      setTranslateX(-Math.min(diffX, buttonWidth)); // 버튼 너비만큼 최대
-    } else if (translateX < 0) {
-      // 왼쪽으로 드래그할 때 천천히 복귀
-      setTranslateX(Math.max(translateX + diffX, -buttonWidth));
+    const currentX = e.touches[0].clientX;
+    const diffX = startX - currentX; // 오른쪽으로 스와이프 시 양수
+    
+    // 현재 위치에서 이동한 만큼 더하기
+    const newTranslateX = currentTranslateX - diffX;
+    
+    // 오른쪽으로만 스와이프 허용 (음수 값만 허용), 최대 buttonWidth까지
+    if (newTranslateX <= 0 && newTranslateX >= -buttonWidth) {
+      setTranslateX(newTranslateX);
+    } else if (newTranslateX < -buttonWidth) {
+      // 버튼 너비를 넘어서면 저항 효과 (오버스크롤)
+      const overScroll = -buttonWidth - newTranslateX;
+      const resistance = 1 - (overScroll / 100); // 저항 계수
+      setTranslateX(-buttonWidth + (overScroll * resistance * 0.3));
     }
   };
 
   // 드래그 종료
   const handleTouchEnd = () => {
     setIsDragging(false);
+    setShouldSlideBack(true);
     
-    // 버튼 너비의 50% 이상 밀렸으면 열기, 아니면 닫기
-    const threshold = buttonWidth / 2;
+    // 버튼 너비의 40% 이상 밀렸으면 열기, 아니면 닫기 (임계값 낮춤)
+    const threshold = buttonWidth * 0.4;
     if (translateX < -threshold) {
       setTranslateX(-buttonWidth);
-      setShouldSlideBack(false);
+      setCurrentTranslateX(-buttonWidth);
       handleOpenChange(true);
     } else {
       setTranslateX(0);
-      setShouldSlideBack(true);
+      setCurrentTranslateX(0);
       handleOpenChange(false);
     }
   };
@@ -211,8 +223,10 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
         style={{
           position: 'relative',
           transform: `translateX(${translateX}px)`,
-          transition: shouldSlideBack ? 'transform 0.3s ease-out' : 'none',
+          transition: shouldSlideBack ? 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
           backgroundColor: 'white',
+          touchAction: 'pan-y', // 세로 스크롤만 허용하고 가로 스와이프는 커스텀 처리
+          willChange: 'transform', // 성능 최적화
           ...style
         }}
       >
