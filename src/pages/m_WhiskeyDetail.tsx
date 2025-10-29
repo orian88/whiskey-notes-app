@@ -287,6 +287,17 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
     return 'translateX(0)';
   };
 
+  // 로딩 완료 시 애니메이션 재초기화
+  useEffect(() => {
+    if (!loading) {
+      setIsEntering(true);
+      const timer = setTimeout(() => {
+        setIsEntering(false);
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
   // 로딩 오버레이 (상세보기 내용보다 위에 표시)
   const loadingOverlay = loading ? (
     <div style={{
@@ -347,17 +358,30 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
       : noWhiskeyContent;
   }
 
-  // 로딩 중이면 오버레이만 표시하고 content는 렌더링하지 않음
-  if (loading) {
-    return typeof document !== 'undefined' 
-      ? createPortal(loadingOverlay, document.body)
-      : loadingOverlay;
-  }
+  // loading이 false이고 whiskey가 없으면 이미 return했으므로, 여기서는 whiskey가 반드시 존재하거나 로딩 중
+  // 로딩 중이어도 애니메이션이 적용된 컨텐츠를 렌더링
 
-  // loading이 false이고 whiskey가 없으면 이미 return했으므로, 여기서는 whiskey가 반드시 존재
-  if (!whiskey) return null;
-
-  const content = (
+  const content = !whiskey ? (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 99999,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+    >
+      <div>로딩 중...</div>
+    </div>
+  ) : (
     <div
       style={{
         position: 'fixed',
@@ -954,8 +978,19 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
   return (
     <>
       {typeof document !== 'undefined' 
-        ? createPortal(content, document.body)
-        : content}
+        ? createPortal(
+            <>
+              {content}
+              {loadingOverlay}
+            </>,
+            document.body
+          )
+        : (
+          <>
+            {content}
+            {loadingOverlay}
+          </>
+        )}
       {editFormOverlay}
     </>
   );

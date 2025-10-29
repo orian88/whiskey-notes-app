@@ -63,7 +63,6 @@ const TastingNotes: React.FC = () => {
         .select(`
           id,
           purchase_date,
-          remaining_amount,
           bottle_volume,
           whiskey_id,
           tasting_finish_date,
@@ -122,7 +121,7 @@ const TastingNotes: React.FC = () => {
     return { bg: '#FEE2E2', border: '#FCA5A5', text: '#991B1B' }; // 빨강
   }, []);
 
-  // 남은양 재계산 함수 (purchases 테이블 업데이트)
+  // 남은양 재계산 함수 (tasting_finish_date만 업데이트, remaining_amount는 계산으로 사용)
   const recalculateRemainingAmount = async (purchaseId: string) => {
     try {
       // 해당 purchase의 bottle_volume 가져오기
@@ -147,12 +146,10 @@ const TastingNotes: React.FC = () => {
 
       const newRemainingAmount = Math.max(0, bottleVolume - totalConsumed);
 
-      // remaining_amount 업데이트
-      const updateData: any = {
-        remaining_amount: newRemainingAmount
-      };
+      // remaining_amount는 계산값을 사용하므로 업데이트하지 않음
+      // 남은양이 0이면 tasting_finish_date만 설정
+      const updateData: any = {};
 
-      // 남은양이 0이면 tasting_finish_date 설정
       if (newRemainingAmount === 0) {
         // 가장 최근 테이스팅 날짜 가져오기
         const latestTasting = tastingNotes
@@ -166,10 +163,13 @@ const TastingNotes: React.FC = () => {
         updateData.tasting_finish_date = null;
       }
 
-      await supabase
-        .from('purchases')
-        .update(updateData)
-        .eq('id', purchaseId);
+      // tasting_finish_date만 업데이트 (remaining_amount는 계산값 사용)
+      if (Object.keys(updateData).length > 0) {
+        await supabase
+          .from('purchases')
+          .update(updateData)
+          .eq('id', purchaseId);
+      }
 
     } catch (error) {
       console.error('remaining_amount 재계산 오류:', error);
