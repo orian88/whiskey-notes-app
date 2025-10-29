@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
@@ -172,7 +173,7 @@ const MobilePersonalNotesDetail: React.FC<MobilePersonalNotesDetailProps> = ({ i
         position: 'absolute', top: '56px', left: 0, right: 0, bottom: 0,
         overflowY: 'auto', WebkitOverflowScrolling: 'touch'
       }}>
-      <div style={{ padding: '16px', paddingBottom: '20px', backgroundColor: '#F9FAFB' }}>
+      <div style={{ padding: '16px', paddingBottom: '80px', backgroundColor: '#F9FAFB' }}>
       
       {/* 노트 정보 카드 */}
       <div style={{
@@ -375,22 +376,30 @@ const MobilePersonalNotesDetail: React.FC<MobilePersonalNotesDetailProps> = ({ i
       </div>
       </div>
       </div>
-      
-      {/* 수정 폼 오버레이 */}
-      {showEditForm && (
-        <NoteFormWithAnimation
-          noteId={note.id}
-          onClose={() => setShowEditForm(false)}
-          onSuccess={() => {
-            loadNoteDetail(note.id);
-            setShowEditForm(false);
-          }}
-        />
-      )}
     </div>
   );
 
-  return content;
+  // Portal을 사용하여 body에 직접 렌더링 (최상위 레이어 보장)
+  return (
+    <>
+      {typeof document !== 'undefined' 
+        ? createPortal(content, document.body)
+        : content}
+      {typeof document !== 'undefined' && showEditForm
+        ? createPortal(
+            <NoteFormWithAnimation
+              noteId={note.id}
+              onClose={() => setShowEditForm(false)}
+              onSuccess={() => {
+                loadNoteDetail(note.id);
+                setShowEditForm(false);
+              }}
+            />,
+            document.body
+          )
+        : null}
+    </>
+  );
 };
 
 // 수정 폼 애니메이션 래퍼

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { usePageStateStore } from '../stores';
 
 interface SwipeableCardProps {
@@ -26,60 +26,97 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [currentTranslateX, setCurrentTranslateX] = useState(0);
-  const [shouldSlideBack, setShouldSlideBack] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [velocity, setVelocity] = useState(0);
+  const lastMoveTime = useRef<number>(0);
+  const lastMoveX = useRef<number>(0);
+  const animationFrameRef = useRef<number | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const { setCardOpen, isCardOpen, closeAllCards } = usePageStateStore();
   
-  // 버튼이 있는지 확인하여 너비 계산
+  // 버튼이 있는지 확인하여 너비 계산 (각 버튼 120px 고정)
   const buttonWidth = onEdit && onDelete ? 240 : onEdit || onDelete ? 120 : 0;
   
-  // 외부에서 카드 상태 변경을 감지
+  // 외부에서 카드 상태 변경을 감지 (더 정확한 동기화)
   useEffect(() => {
     if (cardId) {
       const isOpen = isCardOpen(cardId);
-      if (!isOpen && translateX < 0) {
+      if (!isOpen && translateX < -10) {
+        // 닫혀있는 상태로 변경되어야 하는데 열려있으면 닫기
+        setIsAnimating(true);
         setTranslateX(0);
-        setShouldSlideBack(true);
+        setCurrentTranslateX(0);
+        setTimeout(() => setIsAnimating(false), 300);
       }
     }
   }, [cardId, isCardOpen, translateX]);
   
   // 전역 카드 상태 동기화
-  const handleOpenChange = (isOpen: boolean) => {
+  const handleOpenChange = useCallback((isOpen: boolean) => {
     if (cardId) {
-      setCardOpen(cardId, isOpen);
-      
       // 다른 카드가 열릴 때는 모두 닫기 (한 번에 하나만 열림)
       if (isOpen) {
         closeAllCards();
         setCardOpen(cardId, true);
+      } else {
+        setCardOpen(cardId, false);
       }
     }
-  };
+  }, [cardId, setCardOpen, closeAllCards]);
 
-  // 외부에서 제어되는 열림 상태와 동기화
+  // 외부에서 제어되는 열림 상태와 동기화 (임계값 개선)
   useEffect(() => {
-    handleOpenChange(translateX < -buttonWidth / 2);
-  }, [translateX, buttonWidth]);
+    if (cardId && buttonWidth > 0) {
+      const threshold = buttonWidth * 0.3; // 30% 이상 밀렸으면 열림
+      handleOpenChange(translateX < -threshold);
+    }
+  }, [translateX, buttonWidth, cardId, handleOpenChange]);
 
   // 드래그 시작
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.stopPropagation();
+    
+    // 다른 카드가 열려있으면 먼저 닫기
+    if (cardId) {
+      closeAllCards();
+    }
+    
     // 현재 translateX 위치를 기준으로 시작
     setCurrentTranslateX(translateX);
     setStartX(e.touches[0].clientX);
     setIsDragging(true);
-    setShouldSlideBack(false);
-  };
+    setIsAnimating(false);
+    
+    // 속도 계산을 위한 초기값 설정
+    lastMoveTime.current = Date.now();
+    lastMoveX.current = e.touches[0].clientX;
+    setVelocity(0);
+    
+    // 진행 중인 애니메이션 취소
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, [translateX, cardId, closeAllCards]);
 
-  // 드래그 중
-  const handleTouchMove = (e: React.TouchEvent) => {
+  // 드래그 중 (개선된 버전)
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging) return;
     
     e.preventDefault(); // 기본 스크롤 동작 방지
     
     const currentX = e.touches[0].clientX;
+    const currentTime = Date.now();
     const diffX = startX - currentX; // 오른쪽으로 스와이프 시 양수
+    
+    // 속도 계산 (ms당 픽셀)
+    const timeDiff = currentTime - lastMoveTime.current;
+    if (timeDiff > 0) {
+      const moveDiff = Math.abs(currentX - lastMoveX.current);
+      setVelocity(moveDiff / timeDiff);
+    }
+    lastMoveTime.current = currentTime;
+    lastMoveX.current = currentX;
     
     // 현재 위치에서 이동한 만큼 더하기
     const newTranslateX = currentTranslateX - diffX;
@@ -88,78 +125,153 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
     if (newTranslateX <= 0 && newTranslateX >= -buttonWidth) {
       setTranslateX(newTranslateX);
     } else if (newTranslateX < -buttonWidth) {
-      // 버튼 너비를 넘어서면 저항 효과 (오버스크롤)
+      // 버튼 너비를 넘어서면 저항 효과 (오버스크롤) - 더 부드러운 저항
       const overScroll = -buttonWidth - newTranslateX;
-      const resistance = 1 - (overScroll / 100); // 저항 계수
-      setTranslateX(-buttonWidth + (overScroll * resistance * 0.3));
-    }
-  };
-
-  // 드래그 종료
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    setShouldSlideBack(true);
-    
-    // 버튼 너비의 40% 이상 밀렸으면 열기, 아니면 닫기 (임계값 낮춤)
-    const threshold = buttonWidth * 0.4;
-    if (translateX < -threshold) {
-      setTranslateX(-buttonWidth);
-      setCurrentTranslateX(-buttonWidth);
-      handleOpenChange(true);
-    } else {
+      // 저항 계수를 더 부드럽게 조정 (최대 50px 오버스크롤)
+      const resistance = Math.max(0.1, 1 - (overScroll / 150));
+      setTranslateX(-buttonWidth + (overScroll * resistance * 0.5));
+    } else if (newTranslateX > 0) {
+      // 왼쪽으로 넘어가면 0으로 고정
       setTranslateX(0);
-      setCurrentTranslateX(0);
-      handleOpenChange(false);
     }
-  };
+  }, [isDragging, startX, currentTranslateX, buttonWidth]);
 
-  // 배경 클릭시 닫기
+  // 드래그 종료 (개선된 버전 - 속도 기반 스냅)
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    setIsAnimating(true);
+    
+    // 속도 기반 스냅 처리
+    const minVelocity = 0.5; // 최소 속도 (px/ms)
+    const threshold = buttonWidth * 0.35; // 35% 이상 밀렸으면 열기
+    
+    let targetX: number;
+    
+    // 속도가 빠르면 방향에 따라 스냅
+    if (velocity > minVelocity) {
+      // 빠르게 왼쪽으로 스와이프 (열기)
+      if (translateX < -buttonWidth * 0.2) {
+        targetX = -buttonWidth;
+      } else {
+        // 빠르게 오른쪽으로 스와이프 (닫기)
+        targetX = 0;
+      }
+    } else {
+      // 느리면 위치에 따라 스냅
+      if (translateX < -threshold) {
+        targetX = -buttonWidth;
+      } else {
+        targetX = 0;
+      }
+    }
+    
+    setTranslateX(targetX);
+    setCurrentTranslateX(targetX);
+    
+    // 애니메이션 완료 후 상태 업데이트
+    setTimeout(() => {
+      setIsAnimating(false);
+      handleOpenChange(targetX < -buttonWidth / 2);
+    }, 300);
+    
+    setVelocity(0);
+  }, [translateX, buttonWidth, velocity, handleOpenChange]);
+
+  // 배경 클릭시 닫기 (개선된 버전)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        setTranslateX(0);
-        setShouldSlideBack(true);
-        closeAllCards();
+        // 열려있는 상태일 때만 닫기
+        if (translateX < -10) {
+          setIsAnimating(true);
+          setTranslateX(0);
+          setCurrentTranslateX(0);
+          closeAllCards();
+          setTimeout(() => setIsAnimating(false), 300);
+        }
       }
     };
 
-    if (translateX < 0) {
-      document.addEventListener('click', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
+    // 터치 이벤트도 처리
+    const handleTouchOutside = (e: TouchEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        if (translateX < -10) {
+          setIsAnimating(true);
+          setTranslateX(0);
+          setCurrentTranslateX(0);
+          closeAllCards();
+          setTimeout(() => setIsAnimating(false), 300);
+        }
+      }
     };
+
+    if (translateX < -10) {
+      // 약간의 딜레이를 두어 버튼 클릭 이벤트와 충돌 방지
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('click', handleClickOutside, true);
+        document.addEventListener('touchend', handleTouchOutside, true);
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('click', handleClickOutside, true);
+        document.removeEventListener('touchend', handleTouchOutside, true);
+      };
+    }
   }, [translateX, closeAllCards]);
 
-  const handleEdit = (e: React.MouseEvent) => {
+  const handleEdit = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (onEdit) {
-      onEdit();
+      setIsAnimating(true);
+      setTranslateX(0);
+      setCurrentTranslateX(0);
+      setTimeout(() => {
+        setIsAnimating(false);
+        onEdit();
+        closeAllCards();
+      }, 150);
     }
-    // 수정 후 자동으로 닫기
-    setTranslateX(0);
-    setShouldSlideBack(true);
-    closeAllCards();
-  };
+  }, [onEdit, closeAllCards]);
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (onDelete) {
       if (confirm('정말 삭제하시겠습니까?')) {
-        onDelete();
-        closeAllCards();
+        setIsAnimating(true);
+        setTranslateX(0);
+        setCurrentTranslateX(0);
+        setTimeout(() => {
+          setIsAnimating(false);
+          onDelete();
+          closeAllCards();
+        }, 150);
       } else {
         // 취소되면 닫기
+        setIsAnimating(true);
         setTranslateX(0);
-        setShouldSlideBack(true);
-        closeAllCards();
+        setCurrentTranslateX(0);
+        setTimeout(() => {
+          setIsAnimating(false);
+          closeAllCards();
+        }, 150);
       }
     }
-  };
+  }, [onDelete, closeAllCards]);
+
+  // 컴포넌트 언마운트 시 애니메이션 프레임 정리
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   return (
-    <div style={{ position: 'relative', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', overflow: 'hidden', width: '100%' }}>
       {/* 버튼 영역 - 카드가 닫혀있을 때는 오른쪽 밖에 숨어있어야 함 */}
       <div
         style={{
@@ -169,14 +281,16 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
           bottom: 0,
           width: `${buttonWidth}px`,
           display: 'flex',
-          transform: translateX === 0 ? `translateX(${buttonWidth}px)` : `translateX(${buttonWidth + translateX}px)`,
-          transition: shouldSlideBack ? 'transform 0.3s ease-out' : 'none',
-          zIndex: 1
+          transform: `translateX(${buttonWidth + translateX}px)`,
+          transition: isAnimating && !isDragging ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+          zIndex: 1,
+          pointerEvents: translateX < -10 ? 'auto' : 'none' // 버튼이 보일 때만 클릭 가능
         }}
       >
         {onEdit && (
           <button
             onClick={handleEdit}
+            onTouchEnd={handleEdit}
             style={{
               flex: 1,
               backgroundColor: '#3B82F6',
@@ -187,7 +301,11 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              minWidth: '120px',
+              touchAction: 'manipulation', // 더블탭 줌 방지
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent'
             }}
           >
             ✏️ {editLabel}
@@ -196,6 +314,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
         {onDelete && (
           <button
             onClick={handleDelete}
+            onTouchEnd={handleDelete}
             style={{
               flex: 1,
               backgroundColor: deleteColor,
@@ -206,7 +325,11 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              minWidth: '120px',
+              touchAction: 'manipulation', // 더블탭 줌 방지
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent'
             }}
           >
             🗑️ {deleteLabel}
@@ -223,10 +346,11 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
         style={{
           position: 'relative',
           transform: `translateX(${translateX}px)`,
-          transition: shouldSlideBack ? 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+          transition: isAnimating && !isDragging ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
           backgroundColor: 'white',
-          touchAction: 'pan-y', // 세로 스크롤만 허용하고 가로 스와이프는 커스텀 처리
-          willChange: 'transform', // 성능 최적화
+          touchAction: 'pan-y pinch-zoom', // 세로 스크롤과 핀치 줌만 허용하고 가로 스와이프는 커스텀 처리
+          willChange: isDragging ? 'transform' : 'auto', // 드래그 중에만 willChange 사용
+          WebkitTapHighlightColor: 'transparent',
           ...style
         }}
       >
