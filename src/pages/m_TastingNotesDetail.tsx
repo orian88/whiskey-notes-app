@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
+import FixedCloseBar from '../components/FixedCloseBar';
 import MobileLayout from '../components/MobileLayout';
 import SevenRadarChart from '../components/SevenRadarChart';
 import MobileTastingNotesForm from './m_TastingNotesForm';
@@ -43,6 +44,7 @@ interface ITastingNote {
     purchase_date?: string;
     store_name?: string;
     purchase_location?: string;
+    abv?: number;
     remaining_amount_at_this_date?: number;
     aeration_period?: number | null;
     first_open_date?: string;
@@ -81,6 +83,24 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
     }
   }, [id]);
 
+  // 로딩 완료 시 슬라이드 인 애니메이션을 상세 컨테이너와 함께 적용되도록 재초기화
+  useEffect(() => {
+    if (!loading) {
+      setIsEntering(true);
+      let raf1: number | null = null;
+      let raf2: number | null = null;
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          setIsEntering(false);
+        });
+      });
+      return () => {
+        if (raf1) cancelAnimationFrame(raf1);
+        if (raf2) cancelAnimationFrame(raf2);
+      };
+    }
+  }, [loading]);
+
   // 이모지 매핑 함수 (작성폼과 동일)
   const getEmojiForOption = (option: string) => {
     const emojiMap: { [key: string]: string } = {
@@ -109,6 +129,7 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
           *,
           purchases!inner(
             bottle_volume,
+            abv,
             remaining_amount,
             final_price_krw,
             purchase_date,
@@ -319,32 +340,71 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
     return stars;
   };
 
-  if (loading) {
-    return (
-      <div
-        ref={containerRef}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'white',
-          zIndex: 9999,
-          transition: 'transform 0.3s ease-out',
-          transform: getSlideTransform(),
-          overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-          <div>로딩 중...</div>
-        </div>
+  // 슬라이드가 끝난 후에만 노출되는 로딩 모달 오버레이
+  const showLoadingOverlay = loading && !isEntering;
+  const loadingOverlay = (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'transparent',
+        zIndex: 100000,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}
+    >
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        minWidth: '160px',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          border: '3px solid #E5E7EB',
+          borderTopColor: '#8B4513',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <div style={{ fontSize: '14px', color: '#374151', fontWeight: 600 }}>로딩 중...</div>
       </div>
-    );
-  }
+    </div>
+  );
 
   if (!tastingNote) {
+    // 로딩 중이면 빈 컨테이너 + 로딩 오버레이만 함께 슬라이드
+    if (loading) {
+      return (
+        <div
+          ref={containerRef}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'white',
+            zIndex: 9999,
+            transition: 'transform 0.3s ease-out',
+            transform: getSlideTransform(),
+            overflow: 'hidden'
+          }}
+        >
+          {loadingOverlay}
+        </div>
+      );
+    }
+    // 로딩이 아니고 데이터가 없을 때만 '없음' 표시
     return (
       <div
         ref={containerRef}
@@ -511,7 +571,7 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
                       {tastingNote.whiskey.region}
                     </div>
                   )}
-                  {tastingNote.whiskey.bottle_volume && (
+                  {(tastingNote.purchase?.bottle_volume || tastingNote.whiskey.bottle_volume) && (
                     <div style={{
                       backgroundColor: '#10B981',
                       color: 'white',
@@ -520,10 +580,10 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
                       fontSize: '11px',
                       fontWeight: '600'
                     }}>
-                      {tastingNote.whiskey.bottle_volume}ml
+                      {(tastingNote.purchase?.bottle_volume || tastingNote.whiskey.bottle_volume)}ml
                     </div>
                   )}
-                  {tastingNote.whiskey.abv && (
+                  {(tastingNote.purchase?.abv || tastingNote.whiskey.abv) && (
                     <div style={{
                       backgroundColor: '#F59E0B',
                       color: 'white',
@@ -532,7 +592,7 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
                       fontSize: '11px',
                       fontWeight: '600'
                     }}>
-                      {tastingNote.whiskey.abv}%
+                      {(tastingNote.purchase?.abv || tastingNote.whiskey.abv)}%
                     </div>
                   )}
                 </div>
@@ -597,7 +657,8 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
                       alignItems: 'center',
                       padding: '6px 12px',
                       backgroundColor: (() => {
-                        const percentage = tastingNote.whiskey.bottle_volume ? (tastingNote.purchase!.remaining_amount_at_this_date / tastingNote.whiskey.bottle_volume) * 100 : 0;
+                        const baseVol = (tastingNote.purchase?.bottle_volume || tastingNote.whiskey.bottle_volume || 700);
+                        const percentage = baseVol ? (tastingNote.purchase!.remaining_amount_at_this_date / baseVol) * 100 : 0;
                         if (percentage >= 80) return '#D1FAE5';
                         if (percentage >= 60) return '#FEF3C7';
                         if (percentage >= 40) return '#FED7AA';
@@ -608,7 +669,7 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
                     }}>
                       <span style={{ fontSize: '12px', color: '#6B7280' }}>남은 양:</span>
                       <span style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>
-                        {tastingNote.purchase.remaining_amount_at_this_date}ml ({(tastingNote.whiskey.bottle_volume ? ((tastingNote.purchase.remaining_amount_at_this_date / tastingNote.whiskey.bottle_volume) * 100).toFixed(0) : '0')}%)
+                        {tastingNote.purchase.remaining_amount_at_this_date}ml ({(() => { const baseVol = (tastingNote.purchase?.bottle_volume || tastingNote.whiskey.bottle_volume || 700); return baseVol ? ((tastingNote.purchase.remaining_amount_at_this_date / baseVol) * 100).toFixed(0) : '0'; })()}%)
                       </span>
                     </div>
                   )}
@@ -969,8 +1030,21 @@ const MobileTastingNotesDetail: React.FC<MobileTastingNotesDetailProps> = ({ id:
   return (
     <>
       {typeof document !== 'undefined' 
-        ? createPortal(content, document.body)
-        : content}
+        ? createPortal(
+            <>
+              {content}
+              <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
+              {showLoadingOverlay ? loadingOverlay : null}
+            </>,
+            document.body
+          )
+        : (
+            <>
+              {content}
+              <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
+              {showLoadingOverlay ? loadingOverlay : null}
+            </>
+          )}
       {typeof document !== 'undefined' && showEditForm
         ? createPortal(
             <div style={{

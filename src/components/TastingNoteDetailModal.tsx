@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import SevenRadarChart from './SevenRadarChart';
 import type { ITastingNote, IWhiskey } from '../types/index';
+import FixedCloseBar from '../components/FixedCloseBar';
 
 interface ITastingNoteDetailModalProps {
   isOpen: boolean;
@@ -233,7 +234,7 @@ const TastingNoteDetailModal: React.FC<ITastingNoteDetailModalProps> = ({
                         {whiskey.region}
                       </div>
                     )}
-                    {whiskey.bottle_volume && (
+                    {(purchaseInfo?.bottle_volume || whiskey.bottle_volume) && (
                       <div style={{
                         backgroundColor: '#10B981',
                         color: 'white',
@@ -242,10 +243,10 @@ const TastingNoteDetailModal: React.FC<ITastingNoteDetailModalProps> = ({
                         fontSize: '12px',
                         fontWeight: '600'
                       }}>
-                        {whiskey.bottle_volume}ml
+                        {(purchaseInfo?.bottle_volume || whiskey.bottle_volume)}ml
                       </div>
                     )}
-                    {whiskey.abv && (
+                    {(purchaseInfo?.abv || whiskey.abv) && (
                       <div style={{
                         backgroundColor: '#F59E0B',
                         color: 'white',
@@ -254,7 +255,7 @@ const TastingNoteDetailModal: React.FC<ITastingNoteDetailModalProps> = ({
                         fontSize: '12px',
                         fontWeight: '600'
                       }}>
-                        {whiskey.abv}%
+                        {(purchaseInfo?.abv || whiskey.abv)}%
                       </div>
                     )}
                   </div>
@@ -925,6 +926,7 @@ const TastingNoteDetailModal: React.FC<ITastingNoteDetailModalProps> = ({
 
         </div>
       </div>
+      <FixedCloseBar label="닫기" onClick={onClose} opacity={0.85} />
     </div>,
     document.body
   );

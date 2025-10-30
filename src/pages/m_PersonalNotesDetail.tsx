@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
+import FixedCloseBar from '../components/FixedCloseBar';
 import MobilePersonalNotesForm from './m_PersonalNotesForm';
 
 interface IPersonalNote {
@@ -47,6 +48,25 @@ const MobilePersonalNotesDetail: React.FC<MobilePersonalNotesDetailProps> = ({ i
     }
   }, [id]);
 
+  // 로딩 완료 시 슬라이드 인 애니메이션 재초기화
+  useEffect(() => {
+    if (!loading) {
+      setIsEntering(true);
+      let raf1: number | null = null;
+      let raf2: number | null = null;
+      // 두 번의 RAF로 첫 렌더를 화면 밖(translateX(100%))에 고정한 뒤 다음 프레임에 0으로 전환
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          setIsEntering(false);
+        });
+      });
+      return () => {
+        if (raf1) cancelAnimationFrame(raf1);
+        if (raf2) cancelAnimationFrame(raf2);
+      };
+    }
+  }, [loading]);
+
   const loadNoteDetail = async (noteId: string) => {
     try {
       setLoading(true);
@@ -58,7 +78,6 @@ const MobilePersonalNotesDetail: React.FC<MobilePersonalNotesDetailProps> = ({ i
       
       if (error) throw error;
       
-      console.log('노트 정보 로드 성공:', data);
       setNote(data);
     } catch (error) {
       console.error('노트 정보 로드 오류:', error);
@@ -113,29 +132,89 @@ const MobilePersonalNotesDetail: React.FC<MobilePersonalNotesDetailProps> = ({ i
     return temp.textContent || temp.innerText || '';
   };
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div>로딩 중...</div>
+  // 슬라이드가 끝난 후에만 노출되는 로딩 모달 오버레이
+  const showLoadingOverlay = loading && !isEntering;
+  const loadingOverlay = (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'transparent',
+        zIndex: 100000,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}
+    >
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        minWidth: '160px',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          border: '3px solid #E5E7EB',
+          borderTopColor: '#8B4513',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <div style={{ fontSize: '14px', color: '#374151', fontWeight: 600 }}>로딩 중...</div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (!note) {
-    return (
-      <div style={{ padding: '40px 16px', textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📝</div>
-        <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
-          노트를 찾을 수 없습니다
-        </div>
-        <Button variant="primary" onClick={() => navigate(-1)}>
-          목록으로 돌아가기
-        </Button>
+  const content = loading ? (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 9999,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflow: 'hidden'
+      }}
+    />
+  ) : !note ? (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        zIndex: 9999,
+        transition: 'transform 0.3s ease-out',
+        transform: getSlideTransform(),
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        padding: '40px 16px',
+        textAlign: 'center'
+      }}
+    >
+      <div style={{ fontSize: '48px', marginBottom: '16px' }}>📝</div>
+      <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
+        노트를 찾을 수 없습니다
       </div>
-    );
-  }
-
-  const content = (
+      <Button variant="primary" onClick={handleClose}>
+        목록으로 돌아가기
+      </Button>
+    </div>
+  ) : (
     <div
       style={{
         position: 'fixed',
@@ -383,15 +462,30 @@ const MobilePersonalNotesDetail: React.FC<MobilePersonalNotesDetailProps> = ({ i
   return (
     <>
       {typeof document !== 'undefined' 
-        ? createPortal(content, document.body)
-        : content}
-      {typeof document !== 'undefined' && showEditForm
+        ? createPortal(
+            <>
+              {content}
+              {showLoadingOverlay ? loadingOverlay : null}
+              <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
+            </>,
+            document.body
+          )
+        : (
+          <>
+            {content}
+            {showLoadingOverlay ? loadingOverlay : null}
+            <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
+          </>
+        )}
+      {typeof document !== 'undefined' && note && showEditForm
         ? createPortal(
             <NoteFormWithAnimation
-              noteId={note.id}
+              noteId={note?.id}
               onClose={() => setShowEditForm(false)}
               onSuccess={() => {
-                loadNoteDetail(note.id);
+                if (note?.id) {
+                  loadNoteDetail(note.id);
+                }
                 setShowEditForm(false);
               }}
             />,

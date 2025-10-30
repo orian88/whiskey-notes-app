@@ -14,6 +14,7 @@ interface IWhiskey {
   type?: string;
   region?: string;
   abv?: number;
+  bottle_volume?: number;
   price_range?: string;
   age?: number;
 }
@@ -45,6 +46,8 @@ interface IPurchaseFormData {
   tastingStartDate: string;
   tastingFinishDate: string;
   notes?: string;
+  bottleVolume?: number;
+  abv?: number;
 }
 
 interface MobilePurchaseHistoryFormProps {
@@ -158,7 +161,9 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
     storeName: '',
     tastingStartDate: '',
     tastingFinishDate: '',
-    notes: ''
+    notes: '',
+    bottleVolume: undefined,
+    abv: undefined
   });
 
   useEffect(() => {
@@ -197,6 +202,7 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
             type,
             region,
             abv,
+            bottle_volume,
             age
           )
         `)
@@ -238,7 +244,9 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
         storeName: data.store_name || '',
         tastingStartDate: data.tasting_start_date || '',
         tastingFinishDate: data.tasting_finish_date || '',
-        notes: data.notes || ''
+        notes: data.notes || '',
+        bottleVolume: data.bottle_volume || undefined,
+        abv: data.abv || undefined
       });
     } catch (error) {
       console.error('구매 기록 로드 오류:', error);
@@ -254,7 +262,7 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
       
       const { data, error } = await supabase
         .from('whiskeys')
-        .select('id, name, brand, image_url, type, region, abv, price, age')
+        .select('id, name, brand, image_url, type, region, abv, bottle_volume, price, age')
         .order('name');
 
       if (error) throw error;
@@ -298,6 +306,12 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
     } else {
       setSelectedWhiskey(whiskey);
     }
+    // 선택한 위스키의 기본 도수/용량을 폼에 반영(수정 가능)
+    setFormData(prev => ({
+      ...prev,
+      bottleVolume: whiskey.bottle_volume ?? prev.bottleVolume,
+      abv: whiskey.abv ?? prev.abv
+    }));
     
     setShowWhiskeySelector(false);
     setSearchTerm('');
@@ -446,7 +460,9 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
         store_name: formData.storeName || null,
         tasting_start_date: formData.tastingStartDate || null,
         tasting_finish_date: formData.tastingFinishDate || null,
-        notes: formData.notes || null
+        notes: formData.notes || null,
+        bottle_volume: formData.bottleVolume ?? null,
+        abv: formData.abv ?? null
       };
 
       let error;
@@ -1064,6 +1080,28 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
                 value={formData.tastingFinishDate}
                 onChange={(value) => handleInputChange('tastingFinishDate', value)}
               />
+            </div>
+
+            {/* 메모 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                용량(ml) / 도수(%)
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <Input
+                  type="number"
+                  placeholder="예: 700"
+                  value={(formData.bottleVolume ?? '').toString()}
+                  onChange={(value) => handleInputChange('bottleVolume', value ? parseInt(value) : undefined)}
+                />
+                <Input
+                  type="number"
+                  step="0.1"
+                  placeholder="예: 43.0"
+                  value={(formData.abv ?? '').toString()}
+                  onChange={(value) => handleInputChange('abv', value ? parseFloat(value) : undefined)}
+                />
+              </div>
             </div>
 
             {/* 메모 */}

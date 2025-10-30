@@ -95,9 +95,7 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef(1);
-  const pageSize = useMemo(() => {
-    return Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
-  }, []);
+  // pageSize는 호출 시점에 localStorage에서 읽음
   const [selectedWhiskeyId, setSelectedWhiskeyId] = useState<string | null>(null);
   
   // 상위에서 전달된 함수 사용 또는 로컬 함수 사용
@@ -315,10 +313,11 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
         query = query.eq('is_favorite', true);
       }
       
+      const currentPageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
       const { data, error } = await query
         .range(
-          reset ? 0 : (pageRef.current - 1) * pageSize,
-          reset ? pageSize - 1 : pageRef.current * pageSize - 1
+          reset ? 0 : (pageRef.current - 1) * currentPageSize,
+          reset ? currentPageSize - 1 : pageRef.current * currentPageSize - 1
         );
 
       if (error) throw error;
@@ -332,7 +331,7 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
       }
       
       // 더 이상 데이터가 없으면 hasMore를 false로 설정
-      if ((data?.length || 0) < pageSize) {
+      if ((data?.length || 0) < currentPageSize) {
         setHasMore(false);
       }
     } catch (error) {
@@ -340,7 +339,18 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice, pageSize]);
+  }, [searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice]);
+
+  // 설정 변경 즉시 반영
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.detail?.key === 'mobile_itemsPerPage') {
+        loadData(true, activeTab === 'summary' ? 'list' : activeTab);
+      }
+    };
+    window.addEventListener('settingsChanged', handler);
+    return () => window.removeEventListener('settingsChanged', handler);
+  }, [activeTab, loadData]);
 
   // 삭제 핸들러
   const handleDeleteWhiskey = useCallback(async (id: string, name: string) => {
@@ -731,6 +741,14 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
     threshold: 80
   });
 
+  // 탭 내 스크롤 컨테이너에 pull-to-refresh 바인딩
+  useEffect(() => {
+    if (containerRef.current && (activeTab === 'list' || activeTab === 'cart')) {
+      const cleanup = bindEvents(containerRef.current);
+      return cleanup;
+    }
+  }, [bindEvents, activeTab]);
+
   // 필터 변경 시 서버에서 재로드 (탭 전환 시에는 제외)
   const previousFilters = useRef({
     searchTerm,
@@ -945,7 +963,15 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
 
 
       {(activeTab === 'list' || activeTab === 'cart') && (
-        <div ref={containerRef} style={{ height: '100%', overflowY: 'visible', position: 'relative' }}>
+        <div ref={containerRef} style={{ height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }}>
+      <PullToRefreshIndicator
+        isPulling={isPulling}
+        isRefreshing={isRefreshing}
+        canRefresh={canRefresh}
+        pullDistance={pullDistance}
+        threshold={80}
+        style={refreshIndicatorStyle}
+      />
       {/* 위스키 상세보기 모달 - 목록 영역 내에만 표시 */}
       {selectedWhiskeyId && (
         <WhiskeyModal whiskeyId={selectedWhiskeyId} onClose={() => handleSetSelectedWhiskeyId(null)} />

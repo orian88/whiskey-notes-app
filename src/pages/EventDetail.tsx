@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import FixedCloseBar from '../components/FixedCloseBar';
 import SevenRadarChart from '../components/SevenRadarChart';
 import { useHeaderControls } from '../components/Layout';
 
@@ -1168,6 +1169,11 @@ const EventDetail: React.FC = () => {
           </>
         )}
       </div>
+      <FixedCloseBar 
+        label="닫기" 
+        onClick={() => navigate(type === 'purchase' ? '/purchases' : '/tasting-notes')} 
+        opacity={0.85} 
+      />
     </div>
   );
 };

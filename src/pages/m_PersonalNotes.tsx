@@ -27,7 +27,7 @@ const MobilePersonalNotes: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef(1);
-  const pageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
+  // 페이지 크기는 로드 시점의 설정값을 사용
   
   // 검색 및 필터 상태
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +58,7 @@ const MobilePersonalNotes: React.FC = () => {
         pageRef.current = 1;
         setHasMore(true);
       }
+      const pageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
       
       let query = supabase
         .from('personal_notes')
@@ -119,6 +120,20 @@ const MobilePersonalNotes: React.FC = () => {
   useEffect(() => {
     loadData(true);
   }, [searchTerm, sortBy, sortOrder]);
+
+  // 설정 변경 즉시 반영
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.detail?.key === 'mobile_itemsPerPage') {
+        loadData(true);
+      }
+      if (String(e?.detail?.key || '').startsWith('home_')) {
+        // 홈 관련은 무시
+      }
+    };
+    window.addEventListener('settingsChanged', handler);
+    return () => window.removeEventListener('settingsChanged', handler);
+  }, [loadData]);
 
   const handleRefresh = useCallback(async () => {
     await loadData(true);
@@ -358,7 +373,7 @@ const MobilePersonalNotes: React.FC = () => {
           bindEvents(el);
           containerRef.current = el;
         }}
-        style={{ backgroundColor: '#ffffff', height: '100%', position: 'relative', overflowY: 'visible' }}>
+        style={{ backgroundColor: '#ffffff', height: '100%', position: 'relative', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
 
         {/* 목록 */}
       {notes.length === 0 ? (

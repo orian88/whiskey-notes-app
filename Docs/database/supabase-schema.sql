@@ -31,6 +31,9 @@ CREATE TABLE purchases (
   store_name VARCHAR(255),
   store_location VARCHAR(255),
   notes TEXT,
+  -- 추가: 구매 시점의 용량과 도수 (위스키 테이블과 다를 수 있음)
+  bottle_volume INTEGER,
+  abv DECIMAL(4,2),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

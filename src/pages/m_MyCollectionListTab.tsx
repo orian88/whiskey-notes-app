@@ -21,6 +21,9 @@ interface ICollectionItem {
     age?: number;
     abv?: number;
   };
+  // 선택적으로 구매 시점의 도수/용량이 들어올 수 있음
+  purchase_abv?: number;
+  purchase_bottle_volume?: number;
 }
 
 interface MobileMyCollectionListTabProps {
@@ -268,16 +271,16 @@ const MobileMyCollectionListTab: React.FC<MobileMyCollectionListTabProps> = ({
                         {item.whiskey.age}년
                       </span>
                     )}
-                    {item.whiskey?.abv && (
+                    {(item.purchase_abv || item.whiskey?.abv) && (
                       <span style={{
                         fontSize: '9px',
-                        backgroundColor: getABVColor(item.whiskey.abv),
+                        backgroundColor: getABVColor(item.purchase_abv || item.whiskey?.abv),
                         color: 'white',
                         padding: '2px 5px',
                         borderRadius: '4px',
                         fontWeight: '600'
                       }}>
-                        {item.whiskey.abv}%
+                        {(item.purchase_abv || item.whiskey?.abv)}%
                       </span>
                     )}
                   </div>

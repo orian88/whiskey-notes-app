@@ -45,6 +45,9 @@ export interface IPurchase {
   store_name?: string;
   store_location?: string;
   notes?: string;
+  // 구매 시점의 용량/도수(위스키 기본 정보와 다를 수 있음)
+  bottle_volume?: number;
+  abv?: number;
   
   // 원래 가격 정보
   original_price: number;
@@ -241,6 +244,9 @@ export interface IPurchaseFormData {
   
   // 메모
   notes?: string;
+  // 구매 시점의 용량/도수(선택 입력)
+  bottle_volume?: number;
+  abv?: number;
 }
 
 export interface ITastingNoteFormData {

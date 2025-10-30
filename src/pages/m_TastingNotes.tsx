@@ -68,7 +68,7 @@ const MobileTastingNotes: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [page, setPage] = useState(1);
-  const pageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
+  // 페이지 크기는 로드 시점의 설정값을 사용
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedTastingId, setSelectedTastingId] = useState<string | null>(null);
@@ -124,8 +124,9 @@ const MobileTastingNotes: React.FC = () => {
 
       // 전체 데이터를 저장 (검색은 클라이언트 사이드에서 처리)
       setTastings(formatted);
-      setDisplayedTastings(formatted.slice(0, pageSize));
-      setHasMore(formatted.length > pageSize);
+      const currentPageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
+      setDisplayedTastings(formatted.slice(0, currentPageSize));
+      setHasMore(formatted.length > currentPageSize);
     } catch (error) {
       console.error('데이터 로드 오류:', error);
     } finally {
@@ -134,7 +135,7 @@ const MobileTastingNotes: React.FC = () => {
         setIsInitialLoading(false);
       }
     }
-  }, [pageSize]);
+  }, []);
 
   // 검색어나 필터 변경 시에는 클라이언트 사이드 필터링만 사용
   // filteredAndSortedTastings useMemo가 이미 처리하므로 재조회 불필요
@@ -199,15 +200,27 @@ const MobileTastingNotes: React.FC = () => {
 
   // 필터링 및 정렬된 항목에 따라 표시할 항목 업데이트
   useEffect(() => {
-    const displayed = filteredAndSortedTastings.slice(0, page * pageSize);
+    const currentPageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
+    const displayed = filteredAndSortedTastings.slice(0, page * currentPageSize);
     setDisplayedTastings(displayed);
     setHasMore(displayed.length < filteredAndSortedTastings.length);
-  }, [filteredAndSortedTastings, page, pageSize]);
+  }, [filteredAndSortedTastings, page]);
 
   // 검색어나 필터 변경 시 페이지를 1로 리셋
   useEffect(() => {
     setPage(1);
   }, [searchTerm, filterRating, sortBy, sortOrder]);
+
+  // 설정 변경 즉시 반영
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.detail?.key === 'mobile_itemsPerPage') {
+        setPage(1);
+      }
+    };
+    window.addEventListener('settingsChanged', handler);
+    return () => window.removeEventListener('settingsChanged', handler);
+  }, []);
 
   // 무한 스크롤 비활성화 (더보기 버튼 사용)
 
@@ -533,7 +546,7 @@ const MobileTastingNotes: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div ref={containerRef} style={{ backgroundColor: 'white', height: '100%', overflowY: 'visible', padding: '4px', gap: '4px' }}>
+          <div ref={containerRef} style={{ backgroundColor: 'white', height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '4px', gap: '4px' }}>
             {displayedTastings.map((tasting, index) => (
               <div key={tasting.id}>
               <SwipeableCard

@@ -28,6 +28,7 @@ interface IPurchase {
   purchase_date: string;
   remaining_amount: number;
   bottle_volume?: number;
+  abv?: number;
   store_name?: string;
   purchase_location?: string;
   final_price_krw?: number;
@@ -321,6 +322,7 @@ const MobileTastingNotesForm: React.FC<MobileTastingNotesFormProps> = ({ onClose
           id,
           purchase_date,
           bottle_volume,
+          abv,
           tasting_finish_date,
           store_name,
           purchase_location,
@@ -599,9 +601,9 @@ const MobileTastingNotesForm: React.FC<MobileTastingNotesFormProps> = ({ onClose
             border: '1px solid #E5E7EB'
           }}>
             {/* 위스키 이미지 및 기본 정보 + 잔여량 오른쪽 배치 */}
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
               {selectedPurchase.whiskeys?.image_url && (
-                <div style={{ width: '200px', height: '200px', flexShrink: 0 }}>
+                <div style={{ width: '140px', height: '140px', flexShrink: 0 }}>
                   <div style={{
                     width: '100%',
                     height: '100%',
@@ -620,110 +622,111 @@ const MobileTastingNotesForm: React.FC<MobileTastingNotesFormProps> = ({ onClose
                   </div>
                 </div>
               )}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'row', gap: '16px' }}>
-                {/* 좌측: 위스키 정보 */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0px' }}>
+                {/* 위스키 정보 */}
                 <div style={{ flex: 2, minWidth: 0 }}>
-                  <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#111827' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>
                     {selectedPurchase.whiskeys?.name}
                   </div>
-                  <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '12px' }}>
+                  <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: '10px' }}>
                     {selectedPurchase.whiskeys?.brand}
                   </div>
+                  {/* 모바일: 첫 행에 배지(타입/지역/용량/도수) 자동 감싸기, 둘째 행에 잔여량 전체폭 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    {/* 배지 묶음 */}
+                    <div
+                      style={{
+                        backgroundColor: '#F9FAFB',
+                        border: '0px solid #E5E7EB',
+                        borderRadius: '8px',
+                        padding: '4px',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '4px',
+                        alignItems: 'center'
+                      }}
+                    >
+                      {selectedPurchase.whiskeys?.type && (
+                        <span style={{
+                          backgroundColor: '#EF4444',
+                          color: '#FFFFFF',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 600
+                        }}>{selectedPurchase.whiskeys.type}</span>
+                      )}
+                      {selectedPurchase.whiskeys?.region && (
+                        <span style={{
+                          backgroundColor: '#3B82F6',
+                          color: '#FFFFFF',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 600
+                        }}>{selectedPurchase.whiskeys.region}</span>
+                      )}
+                      {(selectedPurchase.bottle_volume || selectedPurchase.whiskeys?.bottle_volume) && (
+                        <span style={{
+                          backgroundColor: '#10B981',
+                          color: '#FFFFFF',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 600
+                        }}>{(selectedPurchase.bottle_volume || selectedPurchase.whiskeys?.bottle_volume)}ml</span>
+                      )}
+                      {(selectedPurchase.abv || selectedPurchase.whiskeys?.abv) && (
+                        <span style={{
+                          backgroundColor: '#F59E0B',
+                          color: '#111827',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700
+                        }}>{(selectedPurchase.abv || selectedPurchase.whiskeys?.abv)}%</span>
+                      )}
+                    </div>
 
-                  {/* 타입, 지역, 볼륨, 도수 정보 */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginTop: '12px' }}>
-                    {selectedPurchase.whiskeys?.type && (
-                      <div style={{
-                        backgroundColor: '#EF4444',
-                        color: 'white',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        textAlign: 'center'
-                      }}>
-                        {selectedPurchase.whiskeys.type}
-                      </div>
-                    )}
-                    {selectedPurchase.whiskeys?.region && (
-                      <div style={{
-                        backgroundColor: '#059669',
-                        color: 'white',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        textAlign: 'center'
-                      }}>
-                        {selectedPurchase.whiskeys.region}
-                      </div>
-                    )}
-                    {selectedPurchase.whiskeys?.bottle_volume && (
-                      <div style={{
-                        backgroundColor: '#F0FDF4',
-                        color: '#111827',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        textAlign: 'center',
-                        border: '1px solid #BBF7D0'
-                      }}>
-                        {selectedPurchase.whiskeys.bottle_volume}ml
-                      </div>
-                    )}
-                    {selectedPurchase.whiskeys?.abv && (
-                      <div style={{
-                        backgroundColor: '#FEF3C7',
-                        color: '#111827',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        textAlign: 'center',
-                        border: '1px solid #FDE68A'
-                      }}>
-                        {selectedPurchase.whiskeys.abv}%
-                      </div>
-                    )}
+                    {/* 잔여량 - 다음 행 전체 폭 */}
+                    <div
+                      style={{
+                        backgroundColor: '#F9FAFB',
+                        border: '0px solid #E5E7EB',
+                        borderRadius: '8px',
+                        padding: '4px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#374151'
+                      }}
+                    >
+                      {(() => {
+                        const purchaseVolume = selectedPurchase.bottle_volume || null;
+                        const whiskeyVolume = selectedPurchase.whiskeys?.bottle_volume || null;
+                        const baseVol = purchaseVolume ?? whiskeyVolume ?? 700;
+                        const value = selectedPurchase.remaining_amount;
+                        const percent = ((value / baseVol) * 100);
+                        return (
+                          <>
+                            <span style={{
+                              backgroundColor: '#E0E7EF',
+                              color: '#374151',
+                              borderRadius: '6px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              padding: '2px 8px'
+                            }}>잔여량</span>
+                            <span>{value}ml</span>
+                            <span style={{ color: '#6B7280', fontWeight: 600, fontSize: '12px' }}>({percent.toFixed(0)}%)</span>
+                          </>
+                        )
+                      })()}
+                    </div>
                   </div>
-                </div>
-                {/* 우측: 잔여량 정보 */}
-                <div style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'flex-end',
-                  minWidth: '140px',
-                  maxWidth: '180px'
-                }}>
-                  {(() => {
-                    const bottleVolume = selectedPurchase.bottle_volume || selectedPurchase.whiskeys?.bottle_volume || 700;
-                    const color = getRemainingColor(selectedPurchase.remaining_amount, bottleVolume);
-                    return (
-                      <div style={{
-                        marginTop: '0',
-                        marginLeft: '12px',
-                        padding: '12px 16px',
-                        backgroundColor: color.bg,
-                        borderRadius: '10px',
-                        border: `1px solid ${color.border}`,
-                        minWidth: '120px',
-                        maxWidth: '170px',
-                        textAlign: 'center'
-                      }}>
-                        <div style={{ fontSize: '14px', fontWeight: '700', color: color.text }}>
-                          📦 잔여량
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: color.text, marginTop: '4px' }}>
-                          {selectedPurchase.remaining_amount}ml
-                        </div>
-                        <div style={{ fontSize: '12px', color: color.text, marginTop: '2px' }}>
-                          ({((selectedPurchase.remaining_amount / bottleVolume) * 100).toFixed(0)}%)
-                        </div>
-                      </div>
-                    );
-                  })()}
                 </div>
               </div>
             </div>

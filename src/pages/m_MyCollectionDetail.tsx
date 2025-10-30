@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
+import FixedCloseBar from '../components/FixedCloseBar';
 
 interface ICollectionDetail {
   id: string;
@@ -24,6 +25,7 @@ interface ICollectionDetail {
     abv?: number;
     region?: string;
     description?: string;
+    bottle_volume?: number;
   };
   purchase?: {
     id: string;
@@ -32,6 +34,8 @@ interface ICollectionDetail {
     final_price_krw: number;
     purchase_location?: string;
     store_name?: string;
+    abv?: number;
+    bottle_volume?: number;
     basic_discount_amount?: number;
     basic_discount_currency?: string;
     basic_discount_exchange_rate?: number;
@@ -123,7 +127,8 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
             abv,
             region,
             image_url,
-            description
+            description,
+            bottle_volume
           )
         `)
         .eq('id', collectionId)
@@ -143,9 +148,12 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
         ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length 
         : undefined;
 
-      // 남은 양 계산 (purchases 테이블의 bottle_volume 사용)
+      // 남은 양 계산 (구매 bottle_volume → 위스키 bottle_volume → 700 우선순위)
       const totalConsumed = tastingNotes?.reduce((sum, note) => sum + (note.amount_consumed || 0), 0) || 0;
-      const bottleVolume = purchaseData.bottle_volume || 100;
+      const whiskeyFromPurchase = purchaseData.whiskeys && (purchaseData.whiskeys as any).length > 0 
+        ? (purchaseData.whiskeys as any)[0] 
+        : (purchaseData.whiskeys as any);
+      const bottleVolume = (purchaseData.bottle_volume ?? whiskeyFromPurchase?.bottle_volume ?? 700) as number;
       const remainingAmount = Math.max(0, bottleVolume - totalConsumed);
       const remainingPercentage = bottleVolume > 0 ? (remainingAmount / bottleVolume) * 100 : 100;
 
@@ -165,7 +173,7 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
       const avgFinish = tastingCount > 0 ? finishSum / tastingCount : undefined;
 
       // whiskeys 데이터 처리 (단일 객체 또는 배열)
-      const whiskeyData = purchaseData.whiskeys && (purchaseData.whiskeys as any).length > 0 ? (purchaseData.whiskeys as any)[0] : (purchaseData.whiskeys as any);
+      const whiskeyData = whiskeyFromPurchase;
 
       setCollection({
         id: purchaseData.id,
@@ -185,6 +193,8 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
           final_price_krw: purchaseData.final_price_krw,
           purchase_location: purchaseData.purchase_location,
           store_name: purchaseData.store_name,
+          abv: purchaseData.abv,
+          bottle_volume: purchaseData.bottle_volume,
           basic_discount_amount: purchaseData.basic_discount_amount,
           basic_discount_currency: purchaseData.basic_discount_currency,
           basic_discount_exchange_rate: purchaseData.basic_discount_exchange_rate,
@@ -225,7 +235,7 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      backgroundColor: 'rgba(0, 0, 0, 0.2)',
       zIndex: 100000,
       display: 'flex',
       justifyContent: 'center',
@@ -233,10 +243,30 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
       pointerEvents: 'auto'
     }}>
       <div style={{
-        fontSize: '16px',
-        color: '#6B7280',
-        fontWeight: 500
-      }}>로딩 중...</div>
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        minWidth: '160px',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          border: '3px solid #E5E7EB',
+          borderTopColor: '#8B4513',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <div style={{
+          fontSize: '14px',
+          color: '#374151',
+          fontWeight: 600
+        }}>로딩 중...</div>
+      </div>
     </div>
   ) : null;
 
@@ -411,7 +441,7 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
                   {collection.whiskey.age}년
                 </span>
               )}
-              {collection.whiskey?.abv && (
+              {(collection.purchase?.abv ?? collection.whiskey?.abv) && (
                 <span style={{
                   fontSize: '12px',
                   padding: '4px 8px',
@@ -419,7 +449,7 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
                   backgroundColor: '#F0FDF4',
                   color: '#15803D'
                 }}>
-                  {collection.whiskey.abv}%
+                  {(collection.purchase?.abv ?? collection.whiskey?.abv)}%
                 </span>
               )}
             </div>
@@ -716,6 +746,7 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
         <>
           {content}
           {loadingOverlay}
+          <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
         </>,
         document.body
       )
@@ -723,6 +754,7 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
       <>
         {content}
         {loadingOverlay}
+        <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
       </>
     );
 };

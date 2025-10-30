@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import SwipeableCard from '../components/SwipeableCard';
 import { useNavigate } from 'react-router-dom';
 import MobileWhiskeyDetail from './m_WhiskeyDetail';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 
 interface IWhiskey {
   id: string;
@@ -44,10 +46,14 @@ const MobileWhiskeyListTab: React.FC<MobileWhiskeyListTabProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef<number>(0);
   const pageRef = useRef(1);
-  const pageSize = useMemo(() => {
-    return Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
-  }, []);
+  // pageSize는 호출 시점에 localStorage에서 읽음
   const [selectedWhiskeyId, setSelectedWhiskeyId] = useState<string | null>(null);
+  
+  // Pull-to-refresh
+  const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
+    onRefresh: () => loadData(true),
+    threshold: 80
+  });
   
   // 스크롤 위치 저장
   const handleScroll = useCallback(() => {
@@ -91,6 +97,14 @@ const MobileWhiskeyListTab: React.FC<MobileWhiskeyListTabProps> = ({
     
     return () => clearTimeout(timer);
   }, []); // 마운트 시에만 실행
+
+  // 스크롤 컨테이너에 pull-to-refresh 이벤트 바인딩
+  useEffect(() => {
+    if (containerRef.current) {
+      const cleanup = bindEvents(containerRef.current);
+      return cleanup;
+    }
+  }, [bindEvents]);
 
   // 타입 색상 함수
   const getTypeColor = useCallback((type?: string) => {
@@ -254,10 +268,11 @@ const MobileWhiskeyListTab: React.FC<MobileWhiskeyListTabProps> = ({
         query = query.lte('price', maxPrice);
       }
       
+      const currentPageSize = Number(localStorage.getItem('mobile_itemsPerPage')) || 20;
       const { data, error } = await query
         .range(
-          reset ? 0 : (pageRef.current - 1) * pageSize,
-          reset ? pageSize - 1 : pageRef.current * pageSize - 1
+          reset ? 0 : (pageRef.current - 1) * currentPageSize,
+          reset ? currentPageSize - 1 : pageRef.current * currentPageSize - 1
         );
 
       if (error) throw error;
@@ -270,7 +285,7 @@ const MobileWhiskeyListTab: React.FC<MobileWhiskeyListTabProps> = ({
         pageRef.current += 1;
       }
       
-      if ((data?.length || 0) < pageSize) {
+      if ((data?.length || 0) < currentPageSize) {
         setHasMore(false);
       }
     } catch (error) {
@@ -278,7 +293,18 @@ const MobileWhiskeyListTab: React.FC<MobileWhiskeyListTabProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice, pageSize]);
+  }, [searchTerm, filterBrand, filterType, filterRegion, minPrice, maxPrice]);
+
+  // 설정 변경 즉시 반영
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.detail?.key === 'mobile_itemsPerPage') {
+        loadData(true);
+      }
+    };
+    window.addEventListener('settingsChanged', handler);
+    return () => window.removeEventListener('settingsChanged', handler);
+  }, [loadData]);
 
   const handleDeleteWhiskey = useCallback(async (id: string, name: string) => {
     if (!confirm(`"${name}" 위스키를 삭제하시겠습니까?`)) {
@@ -389,7 +415,16 @@ const MobileWhiskeyListTab: React.FC<MobileWhiskeyListTabProps> = ({
         <MobileWhiskeyDetail id={selectedWhiskeyId} onClose={() => setSelectedWhiskeyId(null)} />
       )}
       
-      <div style={{ height: '100%', overflowY: 'auto' }} onScroll={handleScroll} ref={containerRef}>
+      <div style={{ height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }} onScroll={handleScroll} ref={containerRef}>
+
+      <PullToRefreshIndicator
+        isPulling={isPulling}
+        isRefreshing={isRefreshing}
+        canRefresh={canRefresh}
+        pullDistance={pullDistance}
+        threshold={80}
+        style={refreshIndicatorStyle}
+      />
 
       {/* 목록 */}
       {whiskeys.length === 0 && !loading ? (
@@ -402,14 +437,14 @@ const MobileWhiskeyListTab: React.FC<MobileWhiskeyListTabProps> = ({
       ) : (
         <div style={{ backgroundColor: 'white', padding: '6px', gap: '6px' }}>
           {whiskeys.map((whiskey, index) => (
-            <div key={`${whiskey.id}-${index}`} style={{ borderBottom: index < whiskeys.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
+            <div key={`${whiskey.id}-${index}`} style={{ borderBottom: index < whiskeys.length - 1 ? '1px solid #E5E7EB' : 'none', marginBottom: '6px', backgroundColor: 'white' }}>
               <SwipeableCard
                 cardId={`whiskey-${whiskey.id}`}
                 onEdit={() => handleEditWhiskey(whiskey.id)}
                 onDelete={() => handleDeleteWhiskey(whiskey.id, whiskey.name)}
                 editLabel="수정"
                 deleteLabel="삭제"
-                style={{ marginBottom: '6px', backgroundColor: 'white' }}
+                style={{ backgroundColor: 'white' }}
               >
               <div
                 onClick={() => setSelectedWhiskeyId(whiskey.id)}

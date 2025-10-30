@@ -4,6 +4,7 @@ import { useWhiskeyStore, usePurchaseStore, useTastingNoteStore, useLoadingStore
 import { useHeaderControls } from '../components/Layout';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import FixedCloseBar from '../components/FixedCloseBar';
 import Waitform from '../components/Waitform';
 import LazyImage from '../components/LazyImage';
 import { getPriceRange, getCurrentExchangeRate, convertKrwToUsd, getPriceHistory, getPriceCardColor, getPriceBorderColor } from '../utils/priceCollector';
@@ -95,7 +96,7 @@ const WhiskeyDetail: React.FC = () => {
       if (!id) return;
       
       try {
-        console.log('가격 이력 로드 시작, whiskey_id:', id);
+        //console.log('가격 이력 로드 시작, whiskey_id:', id);
         const { data, error } = await supabase
           .from('whiskey_prices')
           .select('*')
@@ -108,7 +109,7 @@ const WhiskeyDetail: React.FC = () => {
           throw error;
         }
         
-        console.log('가격 이력 로드 성공, 건수:', data?.length || 0, '데이터:', data);
+        //console.log('가격 이력 로드 성공, 건수:', data?.length || 0, '데이터:', data);
         setPriceHistories(data || []);
       } catch (error) {
         console.error('가격 이력 로드 오류:', error);
@@ -956,6 +957,7 @@ const WhiskeyDetail: React.FC = () => {
         </Card>
       </div>
 
+      <FixedCloseBar label="닫기" onClick={() => navigate('/whiskeys')} opacity={0.85} />
     </div>
   );
 };

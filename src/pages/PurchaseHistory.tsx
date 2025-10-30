@@ -1060,6 +1060,7 @@ const PurchaseHistory: React.FC = () => {
       // 위스키 정보에서 병 용량 가져오기
       const selectedWhiskey = whiskeys.find(w => w.id === formData.whiskeyId);
       const bottleVolume = selectedWhiskey?.bottle_volume || 700; // 기본값 700ml
+      const abvAtPurchase = selectedWhiskey?.abv ?? null;
       
       // DB에 저장할 데이터 준비
       const purchaseData = {
@@ -1103,6 +1104,7 @@ const PurchaseHistory: React.FC = () => {
         // 병 용량 및 남은양 (신규 구매는 항상 초기값으로 설정)
         bottle_volume: bottleVolume,
         remaining_amount: bottleVolume,
+        abv: abvAtPurchase,
         
         // 메모
         notes: formData.notes

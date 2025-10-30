@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import MobileWhiskeyDetail from './m_WhiskeyDetail';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 
 interface IWhiskey {
   id: string;
@@ -44,6 +46,12 @@ const MobileWhiskeyCartTab: React.FC<MobileWhiskeyCartTabProps> = ({
   }, []);
   const [selectedWhiskeyId, setSelectedWhiskeyId] = useState<string | null>(null);
   
+  // Pull-to-refresh
+  const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
+    onRefresh: () => loadData(true),
+    threshold: 80
+  });
+  
   // 스크롤 위치 저장
   const handleScroll = useCallback(() => {
     if (containerRef.current) {
@@ -86,6 +94,14 @@ const MobileWhiskeyCartTab: React.FC<MobileWhiskeyCartTabProps> = ({
     
     return () => clearTimeout(timer);
   }, []); // 마운트 시에만 실행
+
+  // 스크롤 컨테이너에 pull-to-refresh 이벤트 바인딩
+  useEffect(() => {
+    if (containerRef.current) {
+      const cleanup = bindEvents(containerRef.current);
+      return cleanup;
+    }
+  }, [bindEvents]);
 
   // 타입 색상 함수들 (m_WhiskeyListTab과 동일)
   const getTypeColor = useCallback((type?: string) => {
@@ -352,7 +368,16 @@ const MobileWhiskeyCartTab: React.FC<MobileWhiskeyCartTabProps> = ({
         <MobileWhiskeyDetail id={selectedWhiskeyId} onClose={() => setSelectedWhiskeyId(null)} />
       )}
       
-      <div style={{ height: '100%', overflowY: 'auto' }} onScroll={handleScroll} ref={containerRef}>
+      <div style={{ height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }} onScroll={handleScroll} ref={containerRef}>
+
+      <PullToRefreshIndicator
+        isPulling={isPulling}
+        isRefreshing={isRefreshing}
+        canRefresh={canRefresh}
+        pullDistance={pullDistance}
+        threshold={80}
+        style={refreshIndicatorStyle}
+      />
 
       {/* 목록 */}
       {whiskeys.length === 0 && !loading ? (

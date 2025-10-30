@@ -131,12 +131,12 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
   const isFormMode = location.pathname.includes('/new') || location.pathname.includes('/edit') || location.pathname.includes('/form');
   
   const navigation = [
-    { id: 'home', name: 'Whiskey Notes', icon: '🏠', path: '/mobile' },
+    { id: 'home', name: 'Home', icon: '🏠', path: '/mobile' },
     { id: 'whiskey', name: 'Whiskey', icon: '🥃', path: '/mobile/whiskeys' },
     { id: 'tasting', name: 'Tasting', icon: '📝', path: '/mobile/tasting-notes' },
     { id: 'purchase', name: 'Purchase', icon: '🛒', path: '/mobile/purchase' },
-    { id: 'notes', name: 'My Notes', icon: '📖', path: '/mobile/notes' },
-    { id: 'collection', name: 'My Collection', icon: '🏛️', path: '/mobile/collection' },
+    { id: 'notes', name: 'Notes', icon: '📖', path: '/mobile/notes' },
+    { id: 'collection', name: 'Collection', icon: '🏛️', path: '/mobile/collection' },
   ];
 
   const handleNavigate = (path: string) => {

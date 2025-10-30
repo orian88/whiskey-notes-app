@@ -79,6 +79,8 @@ export interface Database {
           whiskey_id: string;
           purchase_date: string | null;
           purchase_price: number | null;
+          bottle_volume: number | null;
+          abv: number | null;
           store_name: string | null;
           store_location: string | null;
           notes: string | null;
@@ -90,6 +92,8 @@ export interface Database {
           whiskey_id: string;
           purchase_date?: string | null;
           purchase_price?: number | null;
+          bottle_volume?: number | null;
+          abv?: number | null;
           store_name?: string | null;
           store_location?: string | null;
           notes?: string | null;
@@ -101,6 +105,8 @@ export interface Database {
           whiskey_id?: string;
           purchase_date?: string | null;
           purchase_price?: number | null;
+          bottle_volume?: number | null;
+          abv?: number | null;
           store_name?: string | null;
           store_location?: string | null;
           notes?: string | null;

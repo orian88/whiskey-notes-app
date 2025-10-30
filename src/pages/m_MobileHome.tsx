@@ -109,6 +109,12 @@ const MobileHome: React.FC = () => {
         .limit(sliderCount);
 
       if (tastingData) {
+        const stripHtml = (html: string, maxLength: number = 30) => {
+          const temp = document.createElement('div');
+          temp.innerHTML = html || '';
+          const text = (temp.textContent || temp.innerText || '').replace(/#[^\s#]+/g, '').trim();
+          return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        };
         const formatted = tastingData.map((item: any) => {
           const purchase = Array.isArray(item.purchases) ? item.purchases[0] : item.purchases;
           const whiskey = Array.isArray(purchase?.whiskeys) ? purchase.whiskeys[0] : purchase?.whiskeys;
@@ -120,7 +126,7 @@ const MobileHome: React.FC = () => {
             whiskey_name: whiskey?.name || '',
             whiskey_brand: whiskey?.brand || '',
             whiskey_image_url: whiskey?.image_url,
-            notes: item.notes ? item.notes.substring(0, 30) : '',
+            notes: item.notes ? stripHtml(item.notes, 30) : '',
             nose: item.nose ? item.nose.split(',').slice(0, 2).join(',') : '',
             palate: item.palate ? item.palate.split(',').slice(0, 2).join(',') : '',
             finish: item.finish ? item.finish.split(',').slice(0, 2).join(',') : '',
@@ -475,6 +481,18 @@ const MobileHome: React.FC = () => {
     }
   }, [loadDataParallel]);
 
+  // 설정 변경 즉시 반영 (홈 관련 키 변화 시 재로드)
+  useEffect(() => {
+    const handler = (e: any) => {
+      const key = e?.detail?.key as string;
+      if (key && key.startsWith('home_')) {
+        loadDataParallel();
+      }
+    };
+    window.addEventListener('settingsChanged', handler);
+    return () => window.removeEventListener('settingsChanged', handler);
+  }, [loadDataParallel]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -512,6 +530,12 @@ const MobileHome: React.FC = () => {
         .limit(sliderCount);
 
       if (tastingData) {
+        const stripHtml = (html: string, maxLength: number = 30) => {
+          const temp = document.createElement('div');
+          temp.innerHTML = html || '';
+          const text = (temp.textContent || temp.innerText || '').replace(/#[^\s#]+/g, '').trim();
+          return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        };
         const formatted = tastingData.map((item: any) => {
           // purchases는 배열이므로 첫 번째 요소 접근
           const purchase = Array.isArray(item.purchases) ? item.purchases[0] : item.purchases;
@@ -524,7 +548,7 @@ const MobileHome: React.FC = () => {
             whiskey_name: whiskey?.name || '',
             whiskey_brand: whiskey?.brand || '',
             whiskey_image_url: whiskey?.image_url,
-            notes: item.notes ? item.notes.substring(0, 30) : '', // notes 일부만
+            notes: item.notes ? stripHtml(item.notes, 30) : '', // 해시태그/HTML 제거 후 일부만
             nose: item.nose ? item.nose.split(',').slice(0, 5).join(',') : '',
             palate: item.palate ? item.palate.split(',').slice(0, 5).join(',') : '',
             finish: item.finish ? item.finish.split(',').slice(0, 5).join(',') : '',

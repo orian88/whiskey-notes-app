@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
+import FixedCloseBar from '../components/FixedCloseBar';
 import MobileLayout from '../components/MobileLayout';
 import { getPriceRange, getCurrentExchangeRate, convertKrwToUsd, getPriceHistory, getPriceCardColor, getPriceBorderColor } from '../utils/priceCollector';
 import MobileWhiskeyForm from './m_WhiskeyForm';
@@ -40,10 +41,10 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
   const rawId = propId || paramId;
   const id = (rawId && rawId !== 'new' && !rawId.includes('edit')) ? rawId : undefined;
   
-  console.log('[MobileWhiskeyDetail] 렌더링');
-  console.log('[MobileWhiskeyDetail] propId:', propId);
-  console.log('[MobileWhiskeyDetail] paramId:', paramId);
-  console.log('[MobileWhiskeyDetail] 최종 id:', id);
+  //console.log('[MobileWhiskeyDetail] 렌더링');
+  //console.log('[MobileWhiskeyDetail] propId:', propId);
+  //console.log('[MobileWhiskeyDetail] paramId:', paramId);
+//  console.log('[MobileWhiskeyDetail] 최종 id:', id);
   const [whiskey, setWhiskey] = useState<IWhiskeyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'description' | 'price' | 'register'>('description');
@@ -76,11 +77,11 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
   useEffect(() => {
     // id가 유효한 경우에만 데이터 로드 ("new", "edit" 등은 제외)
     if (id && id !== 'new' && !id.includes('edit')) {
-      console.log('[MobileWhiskeyDetail] 유효한 id로 데이터 로드 시작:', id);
+      //console.log('[MobileWhiskeyDetail] 유효한 id로 데이터 로드 시작:', id);
       loadData();
       loadPriceHistories();
     } else {
-      console.log('[MobileWhiskeyDetail] 유효하지 않은 id:', id, '- 데이터 로드 스킵');
+      //console.log('[MobileWhiskeyDetail] 유효하지 않은 id:', id, '- 데이터 로드 스킵');
       setLoading(false);
       setWhiskey(null);
     }
@@ -91,7 +92,7 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
     if (!id) return;
     
     try {
-      console.log('가격 이력 로드 시작, whiskey_id:', id);
+      //console.log('가격 이력 로드 시작, whiskey_id:', id);
       const { data, error } = await supabase
         .from('whiskey_prices')
         .select('*')
@@ -104,7 +105,7 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
         throw error;
       }
       
-      console.log('가격 이력 로드 성공, 건수:', data?.length || 0, '데이터:', data);
+      //console.log('가격 이력 로드 성공, 건수:', data?.length || 0, '데이터:', data);
       setPriceHistories(data || []);
     } catch (error) {
       console.error('가격 이력 로드 오류:', error);
@@ -306,7 +307,7 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      backgroundColor: 'rgba(0, 0, 0, 0.2)',
       zIndex: 100000,
       display: 'flex',
       justifyContent: 'center',
@@ -314,10 +315,30 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
       pointerEvents: 'auto'
     }}>
       <div style={{
-        fontSize: '16px',
-        color: '#6B7280',
-        fontWeight: 500
-      }}>로딩 중...</div>
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        minWidth: '160px',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          border: '3px solid #E5E7EB',
+          borderTopColor: '#8B4513',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <div style={{
+          fontSize: '14px',
+          color: '#374151',
+          fontWeight: 600
+        }}>로딩 중...</div>
+      </div>
     </div>
   ) : null;
 
@@ -982,6 +1003,7 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
             <>
               {content}
               {loadingOverlay}
+              <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
             </>,
             document.body
           )
@@ -989,6 +1011,7 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
           <>
             {content}
             {loadingOverlay}
+            <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
           </>
         )}
       {editFormOverlay}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
+import FixedCloseBar from '../components/FixedCloseBar';
 import MobilePurchaseHistoryForm from './m_PurchaseHistoryForm';
 
 interface IPurchaseDetail {
@@ -28,6 +29,9 @@ interface IPurchaseDetail {
       event_discount_currency?: string;
       event_discount_exchange_rate?: number;
   whiskey_id?: string;
+  // 구매 시점의 용량/도수
+  bottle_volume?: number;
+  abv?: number;
   whiskeys?: {
     id: string;
     name: string;
@@ -37,6 +41,7 @@ interface IPurchaseDetail {
     age?: number;
     abv?: number;
     region?: string;
+    bottle_volume?: number;
     price?: number;
   };
 }
@@ -73,11 +78,29 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
     }
   }, [id]);
 
+  // 로딩 완료 시 슬라이드 인 애니메이션을 상세 컨테이너와 함께 적용되도록 재초기화
+  useEffect(() => {
+    if (!loading) {
+      setIsEntering(true);
+      let raf1: number | null = null;
+      let raf2: number | null = null;
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          setIsEntering(false);
+        });
+      });
+      return () => {
+        if (raf1) cancelAnimationFrame(raf1);
+        if (raf2) cancelAnimationFrame(raf2);
+      };
+    }
+  }, [loading]);
+
   const loadPurchaseDetail = async (purchaseId: string) => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('purchases')
+          .from('purchases')
         .select(`
           *,
           whiskeys!inner (
@@ -88,6 +111,7 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
             age,
             abv,
             region,
+              bottle_volume,
             price,
             image_url
           )
@@ -158,22 +182,93 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
     return 'translateX(0)';
   };
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div>로딩 중...</div>
+  // 슬라이드가 끝난 후에만 노출되는 로딩 모달 오버레이
+  const showLoadingOverlay = loading && !isEntering;
+  const loadingOverlay = (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'transparent',
+        zIndex: 100000,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}
+    >
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        minWidth: '160px',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          border: '3px solid #E5E7EB',
+          borderTopColor: '#8B4513',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <div style={{ fontSize: '14px', color: '#374151', fontWeight: 600 }}>로딩 중...</div>
       </div>
-    );
-  }
+    </div>
+  );
 
   if (!purchase) {
+    // 로딩 중이면 빈 컨테이너 + 로딩 오버레이만 함께 슬라이드
+    if (loading) {
+      return (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'white',
+            zIndex: 9999,
+            transition: 'transform 0.3s ease-out',
+            transform: getSlideTransform(),
+            overflow: 'hidden'
+          }}
+        >
+          {loadingOverlay}
+        </div>
+      );
+    }
+    // 로딩이 아니고 데이터가 없을 때만 '없음' 표시
     return (
-      <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white',
+          zIndex: 9999,
+          transition: 'transform 0.3s ease-out',
+          transform: getSlideTransform(),
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          padding: '40px 16px',
+          textAlign: 'center'
+        }}
+      >
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>🛒</div>
         <div style={{ fontSize: '16px', color: '#6B7280', marginBottom: '8px' }}>
           구매 기록을 찾을 수 없습니다
         </div>
-        <Button variant="primary" onClick={() => navigate(-1)}>
+        <Button variant="primary" onClick={handleClose}>
           목록으로 돌아가기
         </Button>
       </div>
@@ -325,7 +420,7 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
                     {purchase.whiskeys.age}년
                   </div>
                 )}
-                {purchase.whiskeys?.abv && (
+                {(purchase.abv || purchase.whiskeys?.abv) && (
                   <div style={{
                     backgroundColor: '#10B981',
                     color: 'white',
@@ -334,7 +429,20 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
                     fontSize: '11px',
                     fontWeight: '600'
                   }}>
-                    {purchase.whiskeys.abv}%
+                    {(purchase.abv || purchase.whiskeys?.abv)}%
+                  </div>
+                )}
+                {(purchase.bottle_volume || purchase.whiskeys?.bottle_volume) && (
+                  <div style={{
+                    backgroundColor: '#F0FDF4',
+                    color: '#111827',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    border: '1px solid #BBF7D0'
+                  }}>
+                    {(purchase.bottle_volume || purchase.whiskeys?.bottle_volume)}ml
                   </div>
                 )}
                 {purchase.whiskeys?.price && (
@@ -713,8 +821,21 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
   return (
     <>
       {typeof document !== 'undefined' 
-        ? createPortal(content, document.body)
-        : content}
+        ? createPortal(
+            <>
+              {content}
+              <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
+              {showLoadingOverlay ? loadingOverlay : null}
+            </>,
+            document.body
+          )
+        : (
+            <>
+              {content}
+              <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.85} />
+              {showLoadingOverlay ? loadingOverlay : null}
+            </>
+          )}
       {typeof document !== 'undefined' && showEditForm
         ? createPortal(
             <PurchaseFormWithAnimation

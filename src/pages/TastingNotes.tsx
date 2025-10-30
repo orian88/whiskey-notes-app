@@ -64,6 +64,7 @@ const TastingNotes: React.FC = () => {
           id,
           purchase_date,
           bottle_volume,
+          abv,
           whiskey_id,
           tasting_finish_date,
           whiskeys(
@@ -1376,7 +1377,7 @@ const TastingNotes: React.FC = () => {
                                           padding: '12px',
                                           textAlign: 'center'
                                         }}>
-                                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>{whiskey?.bottle_volume}ml</div>
+                                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>{(() => { const p = availablePurchases.find((x:any)=>x.id===selectedPurchaseId); return (p?.bottle_volume || whiskey?.bottle_volume || 700); })()}ml</div>
                   </div>
                 </div>
                                       
@@ -1390,7 +1391,7 @@ const TastingNotes: React.FC = () => {
                                           padding: '12px',
                                           textAlign: 'center'
                                         }}>
-                                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>{whiskey?.abv}%</div>
+                                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>{(() => { const p = availablePurchases.find((x:any)=>x.id===selectedPurchaseId); return (p?.abv || whiskey?.abv || 0); })()}%</div>
                                         </div>
                                       </div>
                                     </div>
@@ -1463,7 +1464,8 @@ const TastingNotes: React.FC = () => {
                                     {/* 남은양 카드 */}
                                     {selectedPurchaseMeta && (() => {
                                       const whiskey = whiskeys.find(w => w.id === formData.whiskey_id);
-                                      const bottleVolume = whiskey?.bottle_volume || 700;
+                                      const selected = availablePurchases.find((x:any)=>x.id===selectedPurchaseId);
+                                      const bottleVolume = (selected?.bottle_volume || whiskey?.bottle_volume || 700);
                                       const color = getRemainingColor(selectedPurchaseMeta.remainingAmount, bottleVolume);
                                       return (
                                         <div style={{ marginBottom: '16px' }}>

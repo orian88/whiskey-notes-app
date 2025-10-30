@@ -223,6 +223,7 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
                 const newValue = Number(e.target.value);
                 setSliderCount(newValue);
                 localStorage.setItem('home_sliderCount', String(newValue));
+                window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key: 'home_sliderCount', value: newValue } }));
               }}
               style={{ 
                 width: '100%', 
@@ -249,6 +250,7 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
                 const newValue = Number(e.target.value);
                 setTodayPickCount(newValue);
                 localStorage.setItem('home_todayPickCount', String(newValue));
+                window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key: 'home_todayPickCount', value: newValue } }));
               }}
               style={{ 
                 width: '100%', 
@@ -275,6 +277,7 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
                 const newValue = Number(e.target.value);
                 setCategoryRankingCount(newValue);
                 localStorage.setItem('home_categoryRankingCount', String(newValue));
+                window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key: 'home_categoryRankingCount', value: newValue } }));
               }}
               style={{ 
                 width: '100%', 
@@ -301,6 +304,7 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
                 const newValue = Number(e.target.value);
                 setRecentPurchaseCount(newValue);
                 localStorage.setItem('home_recentPurchaseCount', String(newValue));
+                window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key: 'home_recentPurchaseCount', value: newValue } }));
               }}
               style={{ 
                 width: '100%', 
@@ -333,6 +337,7 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
                 const newValue = Number(e.target.value);
                 setItemsPerPage(newValue);
                 localStorage.setItem('mobile_itemsPerPage', String(newValue));
+                window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key: 'mobile_itemsPerPage', value: newValue } }));
               }}
               style={{ 
                 width: '100%', 

@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   publicDir: 'public',
   server: {
+    host: true,
     hmr: {
       overlay: false
     },
