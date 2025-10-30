@@ -143,7 +143,9 @@ const MobileMyCollectionListTab: React.FC<MobileMyCollectionListTabProps> = ({
                   gap: '12px',
                   animation: 'slideIn 0.4s ease-out forwards',
                   opacity: 0,
-                  animationDelay: `${index * 0.05}s`
+                  animationDelay: `${index * 0.05}s`,
+                  // 평가 점수에 따른 왼쪽 액센트 보더
+                  borderLeft: `4px solid ${item.current_rating ? (item.current_rating >= 7 ? '#DC2626' : item.current_rating >= 5 ? '#EA580C' : item.current_rating >= 3 ? '#F59E0B' : '#9CA3AF') : '#E5E7EB'}`
                 }}
               >
                 {/* 위스키 이미지 */}

@@ -156,7 +156,8 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
           .eq('id', purchase.id);
 
         if (error) throw error;
-
+        // 목록 새로고침 이벤트 브로드캐스트
+        window.dispatchEvent(new CustomEvent('purchaseListRefresh'));
         handleClose();
       } catch (error) {
         console.error('삭제 오류:', error);
@@ -556,26 +557,27 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
 
           {/* 할인 내역 */}
           {(() => {
-            const basicDiscount = purchase.basic_discount_amount || 0;
-            const couponDiscount = purchase.coupon_discount_amount || 0;
-            const membershipDiscount = purchase.membership_discount_amount || 0;
-            const eventDiscount = purchase.event_discount_amount || 0;
+            // 할인 값은 데이터에 음수가 들어올 수 있으므로 절대값으로 정규화하여 사용
+            const basicDiscount = Math.abs(purchase.basic_discount_amount || 0);
+            const couponDiscount = Math.abs(purchase.coupon_discount_amount || 0);
+            const membershipDiscount = Math.abs(purchase.membership_discount_amount || 0);
+            const eventDiscount = Math.abs(purchase.event_discount_amount || 0);
             
             // KRW 환산된 할인 금액 계산
-            const basicDiscountKRW = purchase.basic_discount_currency !== 'KRW' && purchase.basic_discount_exchange_rate 
+            const basicDiscountKRW = Math.floor((purchase.basic_discount_currency !== 'KRW' && purchase.basic_discount_exchange_rate 
               ? basicDiscount * purchase.basic_discount_exchange_rate 
-              : basicDiscount;
-            const couponDiscountKRW = purchase.coupon_discount_currency !== 'KRW' && purchase.coupon_discount_exchange_rate 
+              : basicDiscount));
+            const couponDiscountKRW = Math.floor((purchase.coupon_discount_currency !== 'KRW' && purchase.coupon_discount_exchange_rate 
               ? couponDiscount * purchase.coupon_discount_exchange_rate 
-              : couponDiscount;
-            const membershipDiscountKRW = purchase.membership_discount_currency !== 'KRW' && purchase.membership_discount_exchange_rate 
+              : couponDiscount));
+            const membershipDiscountKRW = Math.floor((purchase.membership_discount_currency !== 'KRW' && purchase.membership_discount_exchange_rate 
               ? membershipDiscount * purchase.membership_discount_exchange_rate 
-              : membershipDiscount;
-            const eventDiscountKRW = purchase.event_discount_currency !== 'KRW' && purchase.event_discount_exchange_rate 
+              : membershipDiscount));
+            const eventDiscountKRW = Math.floor((purchase.event_discount_currency !== 'KRW' && purchase.event_discount_exchange_rate 
               ? eventDiscount * purchase.event_discount_exchange_rate 
-              : eventDiscount;
+              : eventDiscount));
             
-            const totalDiscountKRW = basicDiscountKRW + couponDiscountKRW + membershipDiscountKRW + eventDiscountKRW;
+            const totalDiscountKRW = Math.max(0, basicDiscountKRW + couponDiscountKRW + membershipDiscountKRW + eventDiscountKRW);
 
             return totalDiscountKRW > 0 && (
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
@@ -595,7 +597,7 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
                           )}
                           {purchase.basic_discount_currency && purchase.basic_discount_currency !== 'KRW' && purchase.basic_discount_exchange_rate && (
                             <span style={{ fontSize: '13px', fontWeight: '600', color: '#3B82F6' }}>
-                              -₩{formatPrice(basicDiscount * purchase.basic_discount_exchange_rate)}
+                              -₩{formatPrice(Math.floor(basicDiscount * purchase.basic_discount_exchange_rate))}
                             </span>
                           )}
                           {(!purchase.basic_discount_currency || purchase.basic_discount_currency === 'KRW') && (
@@ -619,7 +621,7 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
                           )}
                           {purchase.coupon_discount_currency && purchase.coupon_discount_currency !== 'KRW' && purchase.coupon_discount_exchange_rate && (
                             <span style={{ fontSize: '13px', fontWeight: '600', color: '#3B82F6' }}>
-                              -₩{formatPrice(couponDiscount * purchase.coupon_discount_exchange_rate)}
+                              -₩{formatPrice(Math.floor(couponDiscount * purchase.coupon_discount_exchange_rate))}
                             </span>
                           )}
                           {(!purchase.coupon_discount_currency || purchase.coupon_discount_currency === 'KRW') && (
@@ -643,7 +645,7 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
                           )}
                           {purchase.membership_discount_currency && purchase.membership_discount_currency !== 'KRW' && purchase.membership_discount_exchange_rate && (
                             <span style={{ fontSize: '13px', fontWeight: '600', color: '#3B82F6' }}>
-                              -₩{formatPrice(membershipDiscount * purchase.membership_discount_exchange_rate)}
+                              -₩{formatPrice(Math.floor(membershipDiscount * purchase.membership_discount_exchange_rate))}
                             </span>
                           )}
                           {(!purchase.membership_discount_currency || purchase.membership_discount_currency === 'KRW') && (
@@ -667,7 +669,7 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
                           )}
                           {purchase.event_discount_currency && purchase.event_discount_currency !== 'KRW' && purchase.event_discount_exchange_rate && (
                             <span style={{ fontSize: '13px', fontWeight: '600', color: '#3B82F6' }}>
-                              -₩{formatPrice(eventDiscount * purchase.event_discount_exchange_rate)}
+                              -₩{formatPrice(Math.floor(eventDiscount * purchase.event_discount_exchange_rate))}
                             </span>
                           )}
                           {(!purchase.event_discount_currency || purchase.event_discount_currency === 'KRW') && (

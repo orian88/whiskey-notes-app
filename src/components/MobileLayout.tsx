@@ -133,8 +133,8 @@ const MobileLayout: React.FC<IMobileLayoutProps> = ({ children, searchValue = ''
   const navigation = [
     { id: 'home', name: 'Home', icon: '🏠', path: '/mobile' },
     { id: 'whiskey', name: 'Whiskey', icon: '🥃', path: '/mobile/whiskeys' },
-    { id: 'tasting', name: 'Tasting', icon: '📝', path: '/mobile/tasting-notes' },
     { id: 'purchase', name: 'Purchase', icon: '🛒', path: '/mobile/purchase' },
+    { id: 'tasting', name: 'Tasting', icon: '📝', path: '/mobile/tasting-notes' },
     { id: 'notes', name: 'Notes', icon: '📖', path: '/mobile/notes' },
     { id: 'collection', name: 'Collection', icon: '🏛️', path: '/mobile/collection' },
   ];

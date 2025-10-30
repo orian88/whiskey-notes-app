@@ -457,7 +457,9 @@ const MobileWhiskeyListTab: React.FC<MobileWhiskeyListTabProps> = ({
                   animation: 'slideIn 0.4s ease-out forwards',
                   opacity: 0,
                   animationDelay: `${index * 0.05}s`,
-                  minHeight: '100px'
+                  minHeight: '100px',
+                  // 가격대에 따른 왼쪽 액센트 보더
+                  borderLeft: `4px solid ${getPriceBorderColor(whiskey.price)}`
                 }}
               >
                 <div style={{

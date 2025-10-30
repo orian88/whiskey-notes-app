@@ -434,7 +434,6 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
         ? formData.eventDiscountAmount
         : formData.eventDiscountAmount * formData.eventDiscountExchangeRate;
 
-      const totalDiscountKRW = basicDiscountKRW + couponDiscountKRW + membershipDiscountKRW + eventDiscountKRW;
       const finalPriceKRW = calculateFinalPriceKRW();
 
       const purchaseData = {
@@ -442,20 +441,20 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
         purchase_date: formData.purchaseDate,
         original_price: formData.originalPrice,
         original_currency: formData.originalCurrency,
-        original_exchange_rate: formData.originalExchangeRate,
-        final_price_krw: finalPriceKRW,
-        basic_discount_amount: basicDiscountKRW,
+        original_exchange_rate: formData.originalCurrency === 'KRW' ? 1 : formData.originalExchangeRate,
+        final_price_krw: Math.floor(finalPriceKRW),
+        basic_discount_amount: formData.basicDiscountAmount,
         basic_discount_currency: formData.basicDiscountCurrency,
-        basic_discount_exchange_rate: formData.basicDiscountExchangeRate,
-        coupon_discount_amount: couponDiscountKRW,
+        basic_discount_exchange_rate: formData.basicDiscountCurrency === 'KRW' ? 1 : formData.basicDiscountExchangeRate,
+        coupon_discount_amount: formData.couponDiscountAmount,
         coupon_discount_currency: formData.couponDiscountCurrency,
-        coupon_discount_exchange_rate: formData.couponDiscountExchangeRate,
-        membership_discount_amount: membershipDiscountKRW,
+        coupon_discount_exchange_rate: formData.couponDiscountCurrency === 'KRW' ? 1 : formData.couponDiscountExchangeRate,
+        membership_discount_amount: formData.membershipDiscountAmount,
         membership_discount_currency: formData.membershipDiscountCurrency,
-        membership_discount_exchange_rate: formData.membershipDiscountExchangeRate,
-        event_discount_amount: eventDiscountKRW,
+        membership_discount_exchange_rate: formData.membershipDiscountCurrency === 'KRW' ? 1 : formData.membershipDiscountExchangeRate,
+        event_discount_amount: formData.eventDiscountAmount,
         event_discount_currency: formData.eventDiscountCurrency,
-        event_discount_exchange_rate: formData.eventDiscountExchangeRate,
+        event_discount_exchange_rate: formData.eventDiscountCurrency === 'KRW' ? 1 : formData.eventDiscountExchangeRate,
         purchase_location: formData.purchaseLocation || null,
         store_name: formData.storeName || null,
         tasting_start_date: formData.tastingStartDate || null,
@@ -488,6 +487,9 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
 
       alert(purchaseIdProp ? '구매 기록이 수정되었습니다.' : '구매 기록이 추가되었습니다.');
       
+      // 목록 새로고침 브로드캐스트 (상세/목록 어디서든 반영)
+      window.dispatchEvent(new CustomEvent('purchaseListRefresh'));
+
       // onSuccess가 있으면 호출하고 navigate는 하지 않음 (오버레이 방식)
       if (onSuccess) {
         onSuccess();
@@ -1143,7 +1145,7 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
                 취소
               </Button>
               <Button type="submit" style={{ flex: 1 }} disabled={loading}>
-                {loading ? '추가 중...' : '추가하기'}
+                {loading ? (purchaseIdProp ? '수정 중...' : '추가 중...') : (purchaseIdProp ? '수정하기' : '추가하기')}
               </Button>
             </div>
           </form>

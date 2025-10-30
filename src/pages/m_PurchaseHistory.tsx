@@ -40,10 +40,15 @@ interface IPurchase {
   coupon_discount_amount?: number;
   membership_discount_amount?: number;
   event_discount_amount?: number;
+  abv?: number;
   whiskey?: {
     name: string;
     brand: string;
     image_url: string;
+    type?: string;
+    region?: string;
+    age?: number;
+    abv?: number;
   };
 }
 
@@ -83,7 +88,11 @@ const MobilePurchaseHistory: React.FC = () => {
           whiskeys!inner(
             name,
             brand,
-            image_url
+            image_url,
+            type,
+            region,
+            age,
+            abv
           )
         `);
       
@@ -103,6 +112,7 @@ const MobilePurchaseHistory: React.FC = () => {
         coupon_discount_amount: item.coupon_discount_amount || 0,
         membership_discount_amount: item.membership_discount_amount || 0,
         event_discount_amount: item.event_discount_amount || 0,
+        abv: item.abv ?? undefined,
         whiskey: item.whiskeys
       }));
 
@@ -218,6 +228,15 @@ const MobilePurchaseHistory: React.FC = () => {
     }
   }, [location.pathname]);
 
+  // 외부에서 발생시키는 목록 새로고침 이벤트 수신
+  useEffect(() => {
+    const handler = () => {
+      loadData(true);
+    };
+    window.addEventListener('purchaseListRefresh', handler);
+    return () => window.removeEventListener('purchaseListRefresh', handler);
+  }, [loadData]);
+
   const { isPulling, isRefreshing, canRefresh, pullDistance, bindEvents, refreshIndicatorStyle } = usePullToRefresh({
     onRefresh: handleRefresh,
     threshold: 80
@@ -225,6 +244,66 @@ const MobilePurchaseHistory: React.FC = () => {
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ko-KR').format(Math.floor(price));
+  };
+
+  // 금액대별 색상 카드 스타일
+  const getPriceTierStyle = (priceKRW: number) => {
+    if (priceKRW >= 1000000) {
+      return { bg: '#FEF2F2', border: '#FCA5A5', text: '#991B1B' }; // 100만원 이상
+    }
+    if (priceKRW >= 500000) {
+      return { bg: '#FFF7ED', border: '#FDBA74', text: '#9A3412' }; // 50~100만원
+    }
+    if (priceKRW >= 300000) {
+      return { bg: '#FEF3C7', border: '#FDE68A', text: '#92400E' }; // 30~50만원
+    }
+    if (priceKRW >= 200000) {
+      return { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8' }; // 20~30만원
+    }
+    if (priceKRW >= 100000) {
+      return { bg: '#ECFDF5', border: '#A7F3D0', text: '#047857' }; // 10~20만원
+    }
+    return { bg: '#F3F4F6', border: '#E5E7EB', text: '#374151' }; // 10만원 미만
+  };
+
+  // 메타 색상군 헬퍼 (테이스팅 목록과 동일)
+  const getTypeColors = (type?: string): { bg: string; color: string; border: string } => {
+    const key = (type || '기타').toLowerCase();
+    if (key.includes('single')) return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' };
+    if (key.includes('blend')) return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+    if (key.includes('bourbon')) return { bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' };
+    if (key.includes('rye')) return { bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE' };
+    if (key.includes('grain')) return { bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' };
+    return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
+  };
+
+  const getRegionColors = (region?: string): { bg: string; color: string; border: string } => {
+    const r = (region || '기타').toLowerCase();
+    if (r.includes('islay')) return { bg: '#FEF2F2', color: '#991B1B', border: '#FECACA' };
+    if (r.includes('speyside')) return { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' };
+    if (r.includes('highland')) return { bg: '#ECFEFF', color: '#155E75', border: '#BAE6FD' };
+    if (r.includes('lowland')) return { bg: '#FDF2F8', color: '#9D174D', border: '#FBCFE8' };
+    if (r.includes('campbeltown')) return { bg: '#FEFCE8', color: '#854D0E', border: '#FDE68A' };
+    if (r.includes('japan')) return { bg: '#FFF1F2', color: '#9F1239', border: '#FECDD3' };
+    if (r.includes('usa') || r.includes('kentucky') || r.includes('america')) return { bg: '#EFF6FF', color: '#1E3A8A', border: '#BFDBFE' };
+    if (r.includes('ireland')) return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' };
+    return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
+  };
+
+  const getAgeColors = (age?: number): { bg: string; color: string; border: string; label: string } => {
+    if (!age || age <= 0) return { bg: '#EEF2FF', color: '#3730A3', border: '#C7D2FE', label: 'NAS' };
+    if (age <= 10) return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0', label: `${age}y` };
+    if (age <= 15) return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE', label: `${age}y` };
+    if (age <= 20) return { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A', label: `${age}y` };
+    return { bg: '#FCE7F3', color: '#9D174D', border: '#FBCFE8', label: `${age}y` };
+  };
+
+  const getAbvColors = (abv?: number): { bg: string; color: string; border: string } => {
+    const val = abv || 0;
+    if (val >= 55) return { bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA' };
+    if (val >= 46) return { bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' };
+    if (val >= 40) return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+    return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
   };
 
   const hasDiscount = (purchase: IPurchase) => {
@@ -575,10 +654,12 @@ const MobilePurchaseHistory: React.FC = () => {
                   animation: 'slideIn 0.4s ease-out forwards',
                   opacity: 0,
                   animationDelay: `${index * 0.05}s`,
-                  minHeight: '100px'
+                  minHeight: '100px',
+                  // 금액대 별 카드 라벨 느낌의 좌측 보더
+                  borderLeft: `4px solid ${getPriceTierStyle(purchase.final_price_krw || 0).border}`
                 }}
               >
-              {/* 왼쪽: 이미지 */}
+              {/* 왼쪽: 이미지 + 우상단 ABV */}
               <div style={{
                 width: '80px',
                 height: '80px',
@@ -601,6 +682,27 @@ const MobilePurchaseHistory: React.FC = () => {
                 ) : (
                   <div style={{ fontSize: '32px' }}>🥃</div>
                 )}
+                {/* 우상단 ABV 배지 */}
+                {(() => {
+                  const abv = (typeof purchase.abv === 'number' && purchase.abv > 0) ? purchase.abv : purchase.whiskey?.abv;
+                  const c = getAbvColors(abv);
+                  return (
+                    <div style={{
+                      position: 'absolute',
+                      top: '6px',
+                      right: '6px',
+                      padding: '2px 6px',
+                      borderRadius: '9999px',
+                      backgroundColor: c.bg,
+                      color: c.color,
+                      border: `1px solid ${c.border}`,
+                      fontSize: '10px',
+                      fontWeight: 700
+                    }}>
+                      {abv ? `${abv}%` : 'N/A'}
+                    </div>
+                  );
+                })()}
                 
                 {/* 할인 레이어 */}
                 {hasDiscount(purchase) && (
@@ -638,8 +740,30 @@ const MobilePurchaseHistory: React.FC = () => {
                   }}>
                     {purchase.whiskey?.name || '알 수 없음'}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {purchase.whiskey?.brand}
+                  <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span>{purchase.whiskey?.brand}</span>
+                    {(() => {
+                      const t = getTypeColors(purchase.whiskey?.type);
+                      const r = getRegionColors(purchase.whiskey?.region);
+                      const a = getAgeColors(purchase.whiskey?.age);
+                      return (
+                        <>
+                          {purchase.whiskey?.type && (
+                            <span style={{ backgroundColor: t.bg, color: t.color, border: `1px solid ${t.border}`, padding: '1px 6px', borderRadius: '9999px', fontSize: '10px' }}>
+                              {purchase.whiskey?.type}
+                            </span>
+                          )}
+                          {purchase.whiskey?.region && (
+                            <span style={{ backgroundColor: r.bg, color: r.color, border: `1px solid ${r.border}`, padding: '1px 6px', borderRadius: '9999px', fontSize: '10px' }}>
+                              {purchase.whiskey?.region}
+                            </span>
+                          )}
+                          <span style={{ backgroundColor: a.bg, color: a.color, border: `1px solid ${a.border}`, padding: '1px 6px', borderRadius: '9999px', fontSize: '10px' }}>
+                            {a.label}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
                     {purchase.purchase_date}
@@ -648,7 +772,7 @@ const MobilePurchaseHistory: React.FC = () => {
 
                 {/* 오른쪽: 금액, 구매처, 구매장소 (고정 크기) */}
                 <div style={{ 
-                  width: '100px',
+                  width: '110px',
                   flexShrink: 0,
                   display: 'flex', 
                   flexDirection: 'column', 
@@ -657,9 +781,25 @@ const MobilePurchaseHistory: React.FC = () => {
                   fontSize: '11px',
                   color: '#9CA3AF'
                 }}>
-                  <div style={{ fontSize: '13px', color: '#8B4513', fontWeight: 600, textAlign: 'right' }}>
-                    ₩{formatPrice(purchase.final_price_krw)}
-                  </div>
+                  {/* 금액 배지 카드 */}
+                  {(() => {
+                    const tier = getPriceTierStyle(purchase.final_price_krw || 0);
+                    return (
+                      <div style={{
+                        padding: '6px 8px',
+                        borderRadius: '8px',
+                        backgroundColor: tier.bg,
+                        border: `1px solid ${tier.border}`,
+                        color: tier.text,
+                        fontWeight: 700,
+                        fontSize: '12px',
+                        minWidth: '90px',
+                        textAlign: 'right'
+                      }}>
+                        ₩{formatPrice(purchase.final_price_krw)}
+                      </div>
+                    );
+                  })()}
                   {purchase.purchase_location && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span>📍</span>

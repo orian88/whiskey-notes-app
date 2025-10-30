@@ -1062,7 +1062,7 @@ const PurchaseHistory: React.FC = () => {
       const bottleVolume = selectedWhiskey?.bottle_volume || 700; // 기본값 700ml
       const abvAtPurchase = selectedWhiskey?.abv ?? null;
       
-      // DB에 저장할 데이터 준비
+      // DB에 저장할 데이터 준비 (원본 통화 기준 금액 저장, 환율은 통화별 보정)
       const purchaseData = {
         whiskey_id: formData.whiskeyId,
         purchase_date: formData.purchaseDate,
@@ -1070,28 +1070,28 @@ const PurchaseHistory: React.FC = () => {
         // 원래 가격 정보
         original_price: formData.originalPrice,
         original_currency: formData.originalCurrency,
-        original_exchange_rate: formData.originalExchangeRate,
+        original_exchange_rate: formData.originalCurrency === 'KRW' ? 1 : formData.originalExchangeRate,
         
         // 기본 할인 정보
         basic_discount_amount: formData.basicDiscountAmount,
         basic_discount_currency: formData.basicDiscountCurrency,
-        basic_discount_exchange_rate: formData.basicDiscountExchangeRate,
+        basic_discount_exchange_rate: formData.basicDiscountCurrency === 'KRW' ? 1 : formData.basicDiscountExchangeRate,
         
         // 추가 할인 세부 정보
         coupon_discount_amount: formData.couponDiscountAmount,
         coupon_discount_currency: formData.couponDiscountCurrency,
-        coupon_discount_exchange_rate: formData.couponDiscountExchangeRate,
+        coupon_discount_exchange_rate: formData.couponDiscountCurrency === 'KRW' ? 1 : formData.couponDiscountExchangeRate,
         
         membership_discount_amount: formData.membershipDiscountAmount,
         membership_discount_currency: formData.membershipDiscountCurrency,
-        membership_discount_exchange_rate: formData.membershipDiscountExchangeRate,
+        membership_discount_exchange_rate: formData.membershipDiscountCurrency === 'KRW' ? 1 : formData.membershipDiscountExchangeRate,
         
         event_discount_amount: formData.eventDiscountAmount,
         event_discount_currency: formData.eventDiscountCurrency,
-        event_discount_exchange_rate: formData.eventDiscountExchangeRate,
+        event_discount_exchange_rate: formData.eventDiscountCurrency === 'KRW' ? 1 : formData.eventDiscountExchangeRate,
         
         // 최종 계산된 가격
-        final_price_krw: finalPriceKRW,
+        final_price_krw: Math.floor(finalPriceKRW),
         
         // 구매 장소 및 구매처 정보
         purchase_location: formData.purchaseLocation,

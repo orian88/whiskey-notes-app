@@ -50,8 +50,13 @@ interface ITastingNote {
     id: string;
     name: string;
     brand: string;
+    type?: string;
+    region?: string;
+    age?: number;
+    abv?: number;
     image_url: string;
   };
+  purchase_abv?: number;
 }
 
 const MobileTastingNotes: React.FC = () => {
@@ -87,10 +92,15 @@ const MobileTastingNotes: React.FC = () => {
         .select(`
           *,
           purchases!inner(
+            abv,
             whiskeys!inner(
               id,
               name,
               brand,
+              type,
+              region,
+              age,
+              abv,
               image_url
             )
           )
@@ -119,7 +129,8 @@ const MobileTastingNotes: React.FC = () => {
         smokiness: item.smokiness || 0,
         fruitiness: item.fruitiness || 0,
         complexity: item.complexity || 0,
-        whiskey: item.purchases?.whiskeys
+        whiskey: item.purchases?.whiskeys,
+        purchase_abv: item.purchases?.abv
       }));
 
       // 전체 데이터를 저장 (검색은 클라이언트 사이드에서 처리)
@@ -162,6 +173,46 @@ const MobileTastingNotes: React.FC = () => {
     if (rating >= 7) return '#3B82F6';
     if (rating >= 5) return '#F59E0B';
     return '#EF4444';
+  };
+
+  // 메타 색상군 헬퍼
+  const getTypeColors = (type?: string): { bg: string; color: string; border: string } => {
+    const key = (type || '기타').toLowerCase();
+    if (key.includes('single')) return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' }; // 그린 계열
+    if (key.includes('blend')) return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' }; // 블루 계열
+    if (key.includes('bourbon')) return { bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' }; // 오렌지 계열
+    if (key.includes('rye')) return { bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE' }; // 퍼플 계열
+    if (key.includes('grain')) return { bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' }; // 앰버 계열
+    return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' }; // 뉴트럴
+  };
+
+  const getRegionColors = (region?: string): { bg: string; color: string; border: string } => {
+    const r = (region || '기타').toLowerCase();
+    if (r.includes('islay')) return { bg: '#FEF2F2', color: '#991B1B', border: '#FECACA' }; // 레드(피트 연상)
+    if (r.includes('speyside')) return { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' }; // 라이트 그린
+    if (r.includes('highland')) return { bg: '#ECFEFF', color: '#155E75', border: '#BAE6FD' }; // 시안
+    if (r.includes('lowland')) return { bg: '#FDF2F8', color: '#9D174D', border: '#FBCFE8' }; // 로즈
+    if (r.includes('campbeltown')) return { bg: '#FEFCE8', color: '#854D0E', border: '#FDE68A' }; // 옐로우
+    if (r.includes('japan')) return { bg: '#FFF1F2', color: '#9F1239', border: '#FECDD3' }; // 핑크레드
+    if (r.includes('usa') || r.includes('kentucky') || r.includes('america')) return { bg: '#EFF6FF', color: '#1E3A8A', border: '#BFDBFE' }; // 인디고
+    if (r.includes('ireland')) return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' }; // 그린
+    return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
+  };
+
+  const getAgeColors = (age?: number): { bg: string; color: string; border: string; label: string } => {
+    if (!age || age <= 0) return { bg: '#EEF2FF', color: '#3730A3', border: '#C7D2FE', label: 'NAS' };
+    if (age <= 10) return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0', label: `${age}y` };
+    if (age <= 15) return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE', label: `${age}y` };
+    if (age <= 20) return { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A', label: `${age}y` };
+    return { bg: '#FCE7F3', color: '#9D174D', border: '#FBCFE8', label: `${age}y` };
+  };
+
+  const getAbvColors = (abv?: number): { bg: string; color: string; border: string } => {
+    const val = abv || 0;
+    if (val >= 55) return { bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA' }; // CS
+    if (val >= 46) return { bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' }; // 하이 프루프
+    if (val >= 40) return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' }; // 표준
+    return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' }; // 저도수/미상
   };
 
   const filteredAndSortedTastings = React.useMemo(() => tastings
@@ -567,10 +618,12 @@ const MobileTastingNotes: React.FC = () => {
                     animation: 'slideIn 0.4s ease-out forwards',
                     opacity: 0,
                     animationDelay: `${index * 0.05}s`,
-                    minHeight: '100px'
+                    minHeight: '100px',
+                    // 평점에 따른 왼쪽 액센트 보더
+                    borderLeft: `4px solid ${getRatingColor(tasting.rating)}`
                   }}
                 >
-                {/* 왼쪽: 이미지 */}
+                {/* 왼쪽: 이미지 + 레이어(하단 날짜, 우상단 ABV) */}
                 <div style={{
                   width: '100px',
                   height: '100px',
@@ -581,7 +634,8 @@ const MobileTastingNotes: React.FC = () => {
                   justifyContent: 'center',
                   flexShrink: 0,
                   overflow: 'hidden',
-                  marginRight: '12px'
+                  marginRight: '12px',
+                  position: 'relative'
                 }}>
                   {tasting.whiskey?.image_url ? (
                     <img 
@@ -592,6 +646,49 @@ const MobileTastingNotes: React.FC = () => {
                   ) : (
                     <div style={{ fontSize: '48px' }}>🥃</div>
                   )}
+                  {/* 하단 날짜 레이어 (이전 형태: 전체 그라데이션 바, 텍스트만 효과) */}
+                  <div style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    padding: '2px 6px',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.1))',
+                    fontSize: '10px',
+                    textAlign: 'right'
+                  }}>
+                    <span style={{
+                      color: 'white',
+                      fontWeight: 700,
+                      textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                      WebkitTextStroke: '0.2px rgba(0,0,0,0.4)'
+                    }}>
+                      {tasting.tasting_date}
+                    </span>
+                  </div>
+                  {/* 우상단 ABV 레이어 */}
+                  {(() => {
+                    const abv = (typeof tasting.purchase_abv === 'number' && tasting.purchase_abv > 0)
+                      ? tasting.purchase_abv
+                      : tasting.whiskey?.abv;
+                    const c = getAbvColors(abv);
+                    return (
+                      <div style={{
+                        position: 'absolute',
+                        top: '6px',
+                        right: '6px',
+                        padding: '2px 6px',
+                        borderRadius: '9999px',
+                        backgroundColor: c.bg,
+                        color: c.color,
+                        border: `1px solid ${c.border}`,
+                        fontSize: '10px',
+                        fontWeight: 700
+                      }}>
+                        {abv ? `${abv}%` : 'N/A'}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* 가운데: 정보 */}
@@ -606,8 +703,31 @@ const MobileTastingNotes: React.FC = () => {
                   }}>
                     {tasting.whiskey?.name || '알 수 없음'}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>
-                    {tasting.whiskey?.brand} • {tasting.tasting_date}
+                  <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span>{tasting.whiskey?.brand}</span>
+                    {/* 타입/지역/연도 칩 */}
+                    {(() => {
+                      const t = getTypeColors(tasting.whiskey?.type);
+                      const r = getRegionColors(tasting.whiskey?.region);
+                      const a = getAgeColors(tasting.whiskey?.age);
+                      return (
+                        <>
+                          {tasting.whiskey?.type && (
+                            <span style={{ backgroundColor: t.bg, color: t.color, border: `1px solid ${t.border}`, padding: '1px 6px', borderRadius: '9999px', fontSize: '10px' }}>
+                              {tasting.whiskey?.type}
+                            </span>
+                          )}
+                          {tasting.whiskey?.region && (
+                            <span style={{ backgroundColor: r.bg, color: r.color, border: `1px solid ${r.border}`, padding: '1px 6px', borderRadius: '9999px', fontSize: '10px' }}>
+                              {tasting.whiskey?.region}
+                            </span>
+                          )}
+                          <span style={{ backgroundColor: a.bg, color: a.color, border: `1px solid ${a.border}`, padding: '1px 6px', borderRadius: '9999px', fontSize: '10px' }}>
+                            {a.label}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                   
                   {/* 평가 내용 (이모지와 텍스트) */}

@@ -22,8 +22,8 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   style
 }) => {
   const [containerWidth, setContainerWidth] = useState(0);
-  // 버튼 영역이 카드 너비를 넘지 않도록 약간 축소 (파란/빨간 배경이 비치는 현상 방지)
-  const buttonsPercent = (onEdit && onDelete) ? 0.35 : (onEdit || onDelete) ? 0.2 : 0;
+  // 버튼 영역이 카드 너비를 넘지 않도록 더 축소 (배경색 비침 방지)
+  const buttonsPercent = (onEdit && onDelete) ? 0.3 : (onEdit || onDelete) ? 0.18 : 0;
   const actionsWidth = Math.max(0, Math.round(containerWidth * buttonsPercent));
   const [offsetX, setOffsetX] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -32,6 +32,12 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   const selfId = useMemo(() => `swp-${Math.random().toString(36).slice(2)}-${Date.now()}`, []);
   const hasBoth = Boolean(onEdit) && Boolean(onDelete);
   const actionsTranslateX = Math.min(0, offsetX + actionsWidth); // 숨김 시 오른쪽 바깥으로 밀어내기
+  // 카드가 열릴수록 오른쪽 가장자리에 섀도우를 강하게 표시
+  const edgeShadowOpacity = useMemo(() => {
+    if (actionsWidth === 0) return 0;
+    const ratio = Math.min(1, Math.abs(offsetX) / Math.max(1, actionsWidth));
+    return Math.max(0, Math.min(0.22, ratio * 0.22));
+  }, [offsetX, actionsWidth]);
 
   // Observe container width for responsive action width
   useEffect(() => {
@@ -133,7 +139,11 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
           display: 'flex',
           height: '100%',
           justifyContent: 'flex-end',
-          alignItems: 'stretch',
+          alignItems: 'center',
+          flexDirection: 'row',
+          gap: '8px',
+          padding: '8px',
+          backgroundColor: 'whiteSmoke',
           zIndex: 1,
           pointerEvents: offsetX < -10 ? 'auto' : 'none',
           transform: `translate3d(${actionsTranslateX}px, 0, 0)`,
@@ -145,18 +155,26 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
             onClick={handleEdit}
             onTouchEnd={handleEdit}
             style={{
-              flex: hasBoth ? '0 0 50%' : '0 0 100%',
-              backgroundColor: '#3B82F6',
-              color: 'white',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
+              flex: hasBoth ? '1 1 0' : '1 1 120%',
+              minHeight: '60px',
+              borderRadius: '12px',
+              backgroundColor: '#FFFFFF',
+              backgroundImage: 'linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%)',
+              color: '#1D4ED8',
+              border: '1px solid #C7D2FE',
+              padding: '8px 12px',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.2px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
               touchAction: 'manipulation',
               userSelect: 'none',
-              WebkitTapHighlightColor: 'transparent'
+              WebkitTapHighlightColor: 'transparent',
+              outline: 'none'
             }}
           >
             ✏️ {editLabel}
@@ -167,18 +185,26 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
             onClick={handleDelete}
             onTouchEnd={handleDelete}
             style={{
-              flex: hasBoth ? '0 0 50%' : '0 0 100%',
-              backgroundColor: deleteColor,
-              color: 'white',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
+              flex: hasBoth ? '1 1 0' : '1 1 120%',
+              minHeight: '60px',
+              borderRadius: '12px',
+              backgroundColor: '#FFFFFF',
+              backgroundImage: 'linear-gradient(180deg, #FFFFFF 0%, #FEF2F2 100%)',
+              color: '#DC2626',
+              border: '1px solid #FECACA',
+              padding: '8px 12px',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.2px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
               touchAction: 'manipulation',
               userSelect: 'none',
-              WebkitTapHighlightColor: 'transparent'
+              WebkitTapHighlightColor: 'transparent',
+              outline: 'none'
             }}
           >
             🗑️ {deleteLabel}
@@ -196,6 +222,9 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
           touchAction: 'pan-y',
           willChange: 'transform',
           zIndex: 2,
+          // 오른쪽 가장자리 그림자(목록과 액션 공간 분리감)
+          boxShadow: offsetX < 0 ? `8px 0 18px rgba(0,0,0,${edgeShadowOpacity})` : 'none',
+          borderRight: offsetX < 0 ? '1px solid rgba(229,231,235,0.9)' : 'none',
           ...style
         }}
       >

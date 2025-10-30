@@ -636,26 +636,26 @@ const MobileMyCollectionDetail: React.FC<MobileMyCollectionDetailProps> = ({ id:
 
           {/* 할인 내역 */}
           {(() => {
-            const basicDiscount = collection.purchase.basic_discount_amount || 0;
-            const couponDiscount = collection.purchase.coupon_discount_amount || 0;
-            const membershipDiscount = collection.purchase.membership_discount_amount || 0;
-            const eventDiscount = collection.purchase.event_discount_amount || 0;
+            const basicDiscount = Math.abs(collection.purchase.basic_discount_amount || 0);
+            const couponDiscount = Math.abs(collection.purchase.coupon_discount_amount || 0);
+            const membershipDiscount = Math.abs(collection.purchase.membership_discount_amount || 0);
+            const eventDiscount = Math.abs(collection.purchase.event_discount_amount || 0);
 
             // KRW 환산된 할인 금액 계산
-            const basicDiscountKRW = collection.purchase.basic_discount_currency !== 'KRW' && collection.purchase.basic_discount_exchange_rate 
+            const basicDiscountKRW = Math.floor((collection.purchase.basic_discount_currency !== 'KRW' && collection.purchase.basic_discount_exchange_rate 
               ? basicDiscount * collection.purchase.basic_discount_exchange_rate 
-              : basicDiscount;
-            const couponDiscountKRW = collection.purchase.coupon_discount_currency !== 'KRW' && collection.purchase.coupon_discount_exchange_rate 
+              : basicDiscount));
+            const couponDiscountKRW = Math.floor((collection.purchase.coupon_discount_currency !== 'KRW' && collection.purchase.coupon_discount_exchange_rate 
               ? couponDiscount * collection.purchase.coupon_discount_exchange_rate 
-              : couponDiscount;
-            const membershipDiscountKRW = collection.purchase.membership_discount_currency !== 'KRW' && collection.purchase.membership_discount_exchange_rate 
+              : couponDiscount));
+            const membershipDiscountKRW = Math.floor((collection.purchase.membership_discount_currency !== 'KRW' && collection.purchase.membership_discount_exchange_rate 
               ? membershipDiscount * collection.purchase.membership_discount_exchange_rate 
-              : membershipDiscount;
-            const eventDiscountKRW = collection.purchase.event_discount_currency !== 'KRW' && collection.purchase.event_discount_exchange_rate 
+              : membershipDiscount));
+            const eventDiscountKRW = Math.floor((collection.purchase.event_discount_currency !== 'KRW' && collection.purchase.event_discount_exchange_rate 
               ? eventDiscount * collection.purchase.event_discount_exchange_rate 
-              : eventDiscount;
+              : eventDiscount));
 
-            const totalDiscountKRW = basicDiscountKRW + couponDiscountKRW + membershipDiscountKRW + eventDiscountKRW;
+            const totalDiscountKRW = Math.max(0, basicDiscountKRW + couponDiscountKRW + membershipDiscountKRW + eventDiscountKRW);
 
             return totalDiscountKRW > 0 && (
               <>

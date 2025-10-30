@@ -370,10 +370,11 @@ const MobilePersonalNotes: React.FC = () => {
 
       <div 
         ref={(el) => {
+          // 상단 래퍼는 스크롤을 만들지 않습니다 (이중 스크롤 방지)
           bindEvents(el);
           containerRef.current = el;
         }}
-        style={{ backgroundColor: '#ffffff', height: '100%', position: 'relative', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        style={{ backgroundColor: '#ffffff', minHeight: '100vh', position: 'relative' }}>
 
         {/* 목록 */}
       {notes.length === 0 ? (
@@ -387,7 +388,7 @@ const MobilePersonalNotes: React.FC = () => {
           </Button>
         </div>
       ) : (
-        <div style={{ backgroundColor: 'white', padding: '4px', gap: '4px' }}>
+        <div ref={containerRef} style={{ backgroundColor: 'white', padding: '4px', gap: '4px', height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           {notes.map((note, index) => (
             <div key={note.id}>
             <SwipeableCard
@@ -408,9 +409,17 @@ const MobilePersonalNotes: React.FC = () => {
                   display: 'flex',
                   padding: '12px',
                   backgroundColor: 'white',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  // 액션 영역 미세 비침 방지: 우측 여백 확보 및 콘텐츠 클리핑
+                  paddingRight: '22px',
+                  overflow: 'hidden',
+                  position: 'relative',
+                  // 노트 목록은 회색 계열 고정 액센트
+                  borderLeft: '4px solid #D1D5DB'
                 }}
               >
+              {/* 오른쪽 가장자리 마스크 (버튼 배경 완전 차단) */}
+              <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '14px', backgroundColor: 'white', pointerEvents: 'none' }} />
               {/* 왼쪽: 아이콘 */}
               <div style={{
                 width: '40px',
