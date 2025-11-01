@@ -642,6 +642,9 @@ const WhiskeyList: React.FC = () => {
     'islay': 'islay', '아일라': 'islay',
     'lowland': 'lowland', '로우랜드': 'lowland',
     'campbeltown': 'campbeltown', '캠벨타운': 'campbeltown',
+    'islands': 'islands', '아일랜즈': 'islands',
+    'skye': 'skye', 'skye island': 'skye', '스카이섬': 'skye',
+    'arran': 'arran', 'arran island': 'arran', '아란섬': 'arran',
     'japan': 'japan', '일본': 'japan',
     'ireland': 'ireland', '아일랜드': 'ireland',
     'usa': 'usa', 'united states': 'usa', 'america': 'usa', '미국': 'usa',
@@ -654,6 +657,9 @@ const WhiskeyList: React.FC = () => {
     islay: { en: 'Islay', ko: '아일라' },
     lowland: { en: 'Lowland', ko: '로우랜드' },
     campbeltown: { en: 'Campbeltown', ko: '캠벨타운' },
+    islands: { en: 'Islands', ko: '아일랜즈' },
+    skye: { en: 'Skye Island', ko: '스카이섬' },
+    arran: { en: 'Arran Island', ko: '아란섬' },
     japan: { en: 'Japan', ko: '일본' },
     ireland: { en: 'Ireland', ko: '아일랜드' },
     usa: { en: 'USA', ko: '미국' },
@@ -740,6 +746,8 @@ const WhiskeyList: React.FC = () => {
         return { ...base, backgroundColor: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' };
       case 'canada':
         return { ...base, backgroundColor: '#E0F2FE', color: '#0369A1', borderColor: '#BAE6FD' };
+      case 'france':
+        return { ...base, backgroundColor: '#FDF2F8', color: '#BE185D', borderColor: '#FBCFE8' };
       default:
         return { ...base, backgroundColor: '#F3F4F6', color: '#374151', borderColor: '#E5E7EB' };
     }

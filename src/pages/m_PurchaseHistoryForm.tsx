@@ -120,6 +120,9 @@ const MobilePurchaseHistoryForm: React.FC<MobilePurchaseHistoryFormProps> = ({ o
       case 'canada':
       case '캐나다':
         return { bg: '#E0F2FE', text: '#0369A1', border: '#BAE6FD' };
+      case 'france':
+      case '프랑스':
+        return { bg: '#FDF2F8', text: '#BE185D', border: '#FBCFE8' };
       default:
         return { bg: '#F3F4F6', text: '#374151', border: '#E5E7EB' };
     }

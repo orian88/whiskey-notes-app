@@ -91,15 +91,25 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
     swipeDuration: 300
   });
 
+  // 터치(onTouchEnd)와 클릭(onClick)이 연속으로 발생해 중복 실행되는 것을 방지
+  const lastActionTsRef = useRef(0);
+  const invokeOnce = useCallback((fn?: () => void) => {
+    if (!fn) return;
+    const now = Date.now();
+    if (now - lastActionTsRef.current < 350) return; // 350ms 이내 재실행 차단
+    lastActionTsRef.current = now;
+    fn();
+  }, []);
+
   const handleEdit = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    onEdit && onEdit();
-  }, [onEdit]);
+    invokeOnce(onEdit);
+  }, [invokeOnce, onEdit]);
 
   const handleDelete = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    onDelete && onDelete();
-  }, [onDelete]);
+    invokeOnce(onDelete);
+  }, [invokeOnce, onDelete]);
 
   // 문서 어디든 탭/클릭 시, 현재 카드 외부면 닫기
   useEffect(() => {

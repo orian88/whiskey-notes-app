@@ -111,6 +111,9 @@ const WhiskeyModal: React.FC<WhiskeyModalProps> = ({ whiskeyId, onClose }) => {
       case 'canada':
       case '캐나다':
         return { backgroundColor: '#E0F2FE', color: '#0369A1', borderColor: '#BAE6FD' };
+      case 'france':
+      case '프랑스':
+        return { backgroundColor: '#FDF2F8', color: '#BE185D', borderColor: '#FBCFE8' };
       default:
         return { backgroundColor: '#F3F4F6', color: '#374151', borderColor: '#E5E7EB' };
     }

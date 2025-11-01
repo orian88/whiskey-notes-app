@@ -287,6 +287,8 @@ const MobilePurchaseHistory: React.FC = () => {
     if (r.includes('japan')) return { bg: '#FFF1F2', color: '#9F1239', border: '#FECDD3' };
     if (r.includes('usa') || r.includes('kentucky') || r.includes('america')) return { bg: '#EFF6FF', color: '#1E3A8A', border: '#BFDBFE' };
     if (r.includes('ireland')) return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' };
+    if (r.includes('canada')) return { bg: '#E0F2FE', color: '#0369A1', border: '#BAE6FD' };
+    if (r.includes('france')) return { bg: '#FDF2F8', color: '#BE185D', border: '#FBCFE8' };
     return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
   };
 
@@ -304,6 +306,19 @@ const MobilePurchaseHistory: React.FC = () => {
     if (val >= 46) return { bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' };
     if (val >= 40) return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
     return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
+  };
+
+  // 구매일 경과에 따른 날짜 색상 (최근일수록 선명, 6개월 이상 회색계열)
+  const getPurchaseDateColor = (dateString?: string): string => {
+    if (!dateString) return '#9CA3AF';
+    const purchaseTime = new Date(dateString).getTime();
+    if (Number.isNaN(purchaseTime)) return '#9CA3AF';
+    const diffDays = Math.floor((Date.now() - purchaseTime) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 7) return '#10B981';    // 1주 이내: 초록
+    if (diffDays <= 30) return '#3B82F6';   // 1개월 이내: 파랑
+    if (diffDays <= 90) return '#F59E0B';   // 3개월 이내: 앰버
+    if (diffDays <= 180) return '#F97316';  // 6개월 이내: 오렌지
+    return '#9CA3AF';                       // 6개월 이상: 회색
   };
 
   const hasDiscount = (purchase: IPurchase) => {
@@ -696,6 +711,7 @@ const MobilePurchaseHistory: React.FC = () => {
                       backgroundColor: c.bg,
                       color: c.color,
                       border: `1px solid ${c.border}`,
+                      opacity: 0.7,
                       fontSize: '10px',
                       fontWeight: 700
                     }}>
@@ -765,7 +781,7 @@ const MobilePurchaseHistory: React.FC = () => {
                       );
                     })()}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                  <div style={{ fontSize: '12px', color: getPurchaseDateColor(purchase.purchase_date), fontWeight: 700 }}>
                     {purchase.purchase_date}
                   </div>
                 </div>

@@ -175,6 +175,9 @@ const MobileWhiskeyCartTab: React.FC<MobileWhiskeyCartTabProps> = ({
       case 'canada':
       case '캐나다':
         return { ...base, backgroundColor: '#E0F2FE', color: '#0369A1', borderColor: '#BAE6FD' };
+      case 'france':
+      case '프랑스':
+        return { ...base, backgroundColor: '#FDF2F8', color: '#BE185D', borderColor: '#FBCFE8' };
       default:
         return { ...base, backgroundColor: '#F3F4F6', color: '#374151', borderColor: '#E5E7EB' };
     }
@@ -420,7 +423,8 @@ const MobileWhiskeyCartTab: React.FC<MobileWhiskeyCartTabProps> = ({
                   justifyContent: 'center',
                   flexShrink: 0,
                   overflow: 'hidden',
-                  marginRight: '12px'
+                  marginRight: '12px',
+                  position: 'relative'
                 }}>
                   {whiskey.image_url ? (
                     <img 
@@ -430,6 +434,27 @@ const MobileWhiskeyCartTab: React.FC<MobileWhiskeyCartTabProps> = ({
                     />
                   ) : (
                     <div style={{ fontSize: '32px' }}>🥃</div>
+                  )}
+                  {/* 알코올 도수 배지 */}
+                  {whiskey.abv && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '4px',
+                      right: '4px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      color: getABVColorStyle(whiskey.abv),
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '3px 6px',
+                      borderRadius: '12px',
+                      opacity: 0.8,
+                      border: `1.5px solid ${getABVColorStyle(whiskey.abv)}`,
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
+                      whiteSpace: 'nowrap',
+                      zIndex: 10
+                    }}>
+                      {whiskey.abv}%
+                    </div>
                   )}
                 </div>
 
@@ -484,17 +509,6 @@ const MobileWhiskeyCartTab: React.FC<MobileWhiskeyCartTabProps> = ({
                           border: '1px solid #DDD6FE'
                         }}>
                           {whiskey.age}년
-                        </span>
-                      )}
-                      {whiskey.abv && (
-                        <span style={{
-                          fontSize: '10px',
-                          padding: '2px 6px',
-                          borderRadius: '9999px',
-                          color: getABVColorStyle(whiskey.abv),
-                          fontWeight: '600'
-                        }}>
-                          {whiskey.abv}%
                         </span>
                       )}
                     </div>

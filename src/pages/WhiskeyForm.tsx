@@ -271,7 +271,13 @@ const WhiskeyForm: React.FC = () => {
   };
 
   const handleInputChange = (field: keyof IWhiskeyFormData, value: string | number | undefined) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // 국가가 변경되면 지역 초기화
+    if (field === 'country') {
+      setFormData(prev => ({ ...prev, [field]: value, region: '' }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
+    
     // 에러 메시지 제거
     if (errors[field]) {
       setErrors(prev => {
@@ -389,58 +395,53 @@ const WhiskeyForm: React.FC = () => {
     '기타'
   ];
 
-  const regions = [
-    'Highland',
-    'Lowland',
-    'Speyside',
-    'Islay',
-    'Islands',
-    'Campbeltown',
-    'Kentucky',
-    'Tennessee',
+  // 국가별 지역 매핑
+  const regionsByCountry: Record<string, string[]> = {
+    'Scotland': ['Highland', 'Lowland', 'Speyside', 'Islay', 'Islands', 'Campbeltown', '기타'],
+    'Ireland': ['Ireland', '기타'],
+    'United States': ['Kentucky', 'Tennessee', '기타'],
+    'Japan': ['Japan', '기타'],
+    'Canada': ['Canada', '기타'],
+    'France': ['France', '기타'],
+    'Mexico': ['기타'],
+    'Jamaica': ['기타'],
+    'Barbados': ['기타'],
+    'Cuba': ['기타'],
+    'Dominican Republic': ['기타'],
+    'India': ['기타'],
+    'Taiwan': ['기타'],
+    'South Korea': ['기타'],
+    'Australia': ['기타'],
+    'New Zealand': ['기타'],
+    'South Africa': ['기타'],
+    '기타': ['기타'],
+  };
+
+  const countries = [
+    'Scotland',
     'Ireland',
+    'United States',
     'Japan',
     'Canada',
-    'Cognac',
-    'Armagnac',
-    'Champagne',
-    'Burgundy',
-    'Bordeaux',
-    'Scotland',
     'France',
     'Mexico',
     'Jamaica',
     'Barbados',
     'Cuba',
     'Dominican Republic',
-    'Nicaragua',
-    'Guatemala',
-    'Colombia',
-    'Venezuela',
-    'Peru',
-    'Chile',
-    'Argentina',
-    'Spain',
-    'Italy',
-    'Germany',
-    'Netherlands',
-    'Belgium',
-    'Poland',
-    'Russia',
-    'Sweden',
-    'Norway',
-    'Finland',
-    'Denmark',
     'India',
     'Taiwan',
     'South Korea',
-    'Thailand',
-    'Philippines',
     'Australia',
     'New Zealand',
     'South Africa',
     '기타'
   ];
+
+  // 선택된 국가에 따른 지역 목록 필터링
+  const availableRegions = formData.country 
+    ? (regionsByCountry[formData.country] || ['기타'])
+    : [];
 
   return (
     <div style={{ 
@@ -555,11 +556,11 @@ const WhiskeyForm: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                지역
+                국가
               </label>
               <select
-                value={formData.region}
-                onChange={(e) => handleInputChange('region', e.target.value)}
+                value={formData.country}
+                onChange={(e) => handleInputChange('country', e.target.value)}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -572,8 +573,36 @@ const WhiskeyForm: React.FC = () => {
                   boxSizing: 'border-box'
                 }}
               >
+                <option value="">국가 선택</option>
+                {countries.map(country => (
+                  <option key={country} value={country}>{country}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                지역
+              </label>
+              <select
+                value={formData.region}
+                onChange={(e) => handleInputChange('region', e.target.value)}
+                disabled={!formData.country}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  backgroundColor: formData.country ? '#FFFFFF' : '#F3F4F6',
+                  height: '44px',
+                  boxSizing: 'border-box',
+                  cursor: formData.country ? 'pointer' : 'not-allowed'
+                }}
+              >
                 <option value="">지역 선택</option>
-                {regions.map(region => (
+                {availableRegions.map(region => (
                   <option key={region} value={region}>{region}</option>
                 ))}
               </select>

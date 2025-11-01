@@ -196,6 +196,8 @@ const MobileTastingNotes: React.FC = () => {
     if (r.includes('japan')) return { bg: '#FFF1F2', color: '#9F1239', border: '#FECDD3' }; // 핑크레드
     if (r.includes('usa') || r.includes('kentucky') || r.includes('america')) return { bg: '#EFF6FF', color: '#1E3A8A', border: '#BFDBFE' }; // 인디고
     if (r.includes('ireland')) return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' }; // 그린
+    if (r.includes('canada')) return { bg: '#E0F2FE', color: '#0369A1', border: '#BAE6FD' }; // 캐나다
+    if (r.includes('france')) return { bg: '#FDF2F8', color: '#BE185D', border: '#FBCFE8' }; // 프랑스
     return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
   };
 

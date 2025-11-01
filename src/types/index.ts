@@ -309,6 +309,8 @@ export interface ISearchFilters {
 export interface CrawledWhiskeyData {
   englishName: string;
   koreanName: string;
+  brand?: string; // 브랜드 추가
+  age?: number; // 숙성년수 추가
   volume: number;
   price: number;
   aroma: string;
@@ -329,6 +331,7 @@ export interface CrawledWhiskeyData {
     rawInformation: any[];
     rawTastingNotes: any[];
     rawJsonData: any;
+    rawHtml?: string; // 원본 HTML 데이터
   };
 }
 

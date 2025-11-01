@@ -246,6 +246,9 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
       case 'canada':
       case '캐나다':
         return { ...base, backgroundColor: '#E0F2FE', color: '#0369A1', borderColor: '#BAE6FD' };
+      case 'france':
+      case '프랑스':
+        return { ...base, backgroundColor: '#FDF2F8', color: '#BE185D', borderColor: '#FBCFE8' };
       default:
         return { ...base, backgroundColor: '#F3F4F6', color: '#374151', borderColor: '#E5E7EB' };
     }
@@ -1023,7 +1026,8 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
                 justifyContent: 'center',
                 flexShrink: 0,
                 overflow: 'hidden',
-                marginRight: '12px'
+                marginRight: '12px',
+                position: 'relative'
               }}>
                 {whiskey.image_url ? (
                   <img 
@@ -1033,6 +1037,27 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
                   />
                 ) : (
                   <div style={{ fontSize: '32px' }}>🥃</div>
+                )}
+                {/* 알코올 도수 배지 */}
+                {whiskey.abv && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '4px',
+                    right: '4px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    color: getABVColorStyle(whiskey.abv),
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    padding: '3px 6px',
+                    opacity: 0.7,
+                    borderRadius: '12px',
+                    border: `1.5px solid ${getABVColorStyle(whiskey.abv)}`,
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
+                    whiteSpace: 'nowrap',
+                    zIndex: 10
+                  }}>
+                    {whiskey.abv}%
+                  </div>
                 )}
               </div>
 
@@ -1093,17 +1118,6 @@ const MobileWhiskeyListContent: React.FC<WhiskeyListContentProps> = ({
                         border: '1px solid #DDD6FE'
                       }}>
                         {whiskey.age}년
-                      </span>
-                    )}
-                    {whiskey.abv && (
-                      <span style={{
-                        fontSize: '10px',
-                        padding: '2px 6px',
-                        borderRadius: '9999px',
-                        color: getABVColorStyle(whiskey.abv),
-                        fontWeight: '600'
-                      }}>
-                        {whiskey.abv}%
                       </span>
                     )}
                   </div>
@@ -1267,21 +1281,26 @@ const MobileWhiskeyList: React.FC = () => {
   }, []); // location.pathname 제거 - 마운트 시에만 실행
 
   const filterOptions = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
       {/* 한 줄: 브랜드, 타입, 지역 */}
-      <div style={{ display: 'flex', gap: '6px' }}>
+      <div style={{ display: 'flex', gap: '6px', width: '100%', boxSizing: 'border-box', minWidth: 0 }}>
         <select
           value={filterBrand}
           onChange={(e) => setFilterBrand(e.target.value)}
           style={{
-            flex: 1,
+            flex: '1 1 0',
+            minWidth: 0,
             padding: '4px 8px',
             border: '1px solid #D1D5DB',
             borderRadius: '6px',
             fontSize: '10px',
             backgroundColor: 'white',
             height: '30px',
-            lineHeight: '22px'
+            lineHeight: '22px',
+            boxSizing: 'border-box',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}
         >
           <option value="">전체 브랜드</option>
@@ -1294,14 +1313,19 @@ const MobileWhiskeyList: React.FC = () => {
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
           style={{
-            flex: 1,
+            flex: '1 1 0',
+            minWidth: 0,
             padding: '4px 8px',
             border: '1px solid #D1D5DB',
             borderRadius: '6px',
             fontSize: '10px',
             backgroundColor: 'white',
             height: '30px',
-            lineHeight: '22px'
+            lineHeight: '22px',
+            boxSizing: 'border-box',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}
         >
           <option value="">전체 타입</option>
@@ -1314,14 +1338,19 @@ const MobileWhiskeyList: React.FC = () => {
           value={filterRegion}
           onChange={(e) => setFilterRegion(e.target.value)}
           style={{
-            flex: 1,
+            flex: '1 1 0',
+            minWidth: 0,
             padding: '4px 8px',
             border: '1px solid #D1D5DB',
             borderRadius: '6px',
             fontSize: '10px',
             backgroundColor: 'white',
             height: '30px',
-            lineHeight: '22px'
+            lineHeight: '22px',
+            boxSizing: 'border-box',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}
         >
           <option value="">전체 지역</option>

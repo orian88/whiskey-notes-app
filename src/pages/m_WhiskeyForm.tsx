@@ -78,6 +78,12 @@ const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSucces
   const [crawlUrl, setCrawlUrl] = useState('');
   const [crawlMessage, setCrawlMessage] = useState('');
   const [crawling, setCrawling] = useState(false);
+  const [crawledSourceData, setCrawledSourceData] = useState<any>(null);
+  // 환경설정에서 크롤링 소스 데이터 표시 옵션 읽기
+  const [showSourceData, setShowSourceData] = useState(() => {
+    const saved = localStorage.getItem('show_crawlSourceData');
+    return saved ? saved === 'true' : false;
+  });
 
   useEffect(() => {
     if (isEdit && id) {
@@ -257,7 +263,13 @@ const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSucces
   };
 
   const handleInputChange = (field: keyof IWhiskeyFormData, value: string | number | undefined) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // 국가가 변경되면 지역 초기화
+    if (field === 'country') {
+      setFormData(prev => ({ ...prev, [field]: value, region: '' }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
+    
     if (errors[field]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -285,10 +297,50 @@ const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSucces
       const crawledData = await crawlDailyshot(crawlUrl);
       
       if (crawledData) {
+        // 타입 원본 찾기
+        let typeRaw = '';
+        if (crawledData.debugInfo?.rawInformation) {
+          const typeInfo = crawledData.debugInfo.rawInformation.find((info: any) => 
+            info.label === '종류' || info.label_ko === '종류'
+          );
+          typeRaw = typeInfo?.value || '';
+        }
+        
+        // 크롤링된 원본 소스 데이터 저장 (크롤러에서 이미 추출된 brand, age 사용)
+        setCrawledSourceData({
+          rawData: crawledData,
+          debugInfo: crawledData.debugInfo,
+          extractedValues: {
+            koreanName: crawledData.koreanName,
+            englishName: crawledData.englishName,
+            brand: crawledData.brand || '', // 크롤러에서 추출된 brand 사용
+            age: crawledData.age, // 크롤러에서 추출된 age 사용
+            type: crawledData.type,
+            typeRaw: typeRaw,
+            abv: crawledData.abv,
+            volume: crawledData.volume,
+            country: crawledData.country,
+            region: crawledData.region,
+            cask: crawledData.cask,
+            price: crawledData.price,
+            aroma: crawledData.aroma,
+            taste: crawledData.taste,
+            finish: crawledData.finish,
+            imageUrl: crawledData.imageUrl,
+            description: crawledData.description,
+            reviewRate: crawledData.reviewRate,
+            reviewCount: crawledData.reviewCount,
+          }
+        });
+        // 환경설정 옵션에 따라 자동 표시 여부 결정
+        const shouldAutoShow = localStorage.getItem('show_crawlSourceData') === 'true';
+        setShowSourceData(shouldAutoShow);
+        
         setFormData(prev => ({
           ...prev,
           name: crawledData.koreanName || crawledData.englishName || prev.name,
-          brand: crawledData.englishName || prev.brand,
+          brand: crawledData.brand || prev.brand, // 크롤러에서 추출된 brand 사용
+          age: crawledData.age || prev.age, // 크롤러에서 추출된 age 사용
           type: crawledData.type || prev.type,
           bottle_volume: crawledData.volume || prev.bottle_volume,
           abv: crawledData.abv || prev.abv,
@@ -307,11 +359,15 @@ const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSucces
         setCrawlUrl(''); // 성공 시 URL 초기화
         setTimeout(() => setCrawlMessage(''), 3000);
       } else {
+        setCrawledSourceData(null);
+        setShowSourceData(false);
         setCrawlMessage('❌ 크롤링에 실패했습니다.');
         setTimeout(() => setCrawlMessage(''), 3000);
       }
     } catch (error) {
       console.error('Crawling error:', error);
+      setCrawledSourceData(null);
+      setShowSourceData(false);
       setCrawlMessage('❌ 크롤링 중 오류가 발생했습니다.');
       setTimeout(() => setCrawlMessage(''), 3000);
     } finally {
@@ -320,9 +376,43 @@ const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSucces
   };
 
   const whiskeyTypes = [
-    'Single Malt', 'Blended Malt', 'Blended', 'Bourbon', 'Rye', 
-    'Irish', 'Japanese', 'Cognac', 'Brandy', 'Rum', '기타'
+    'Single Malt', 'Blended Malt', 'Blended', 'Single Grain', 'Blended Grain',
+    'Bourbon', 'Rye', 'Tennessee', 'Irish', 'Japanese', 'Canadian',
+    'Cognac', 'Armagnac', 'Calvados', 'Brandy', 'Rum', 'Vodka', 'Gin', 'Tequila', 'Liqueur', '기타'
   ];
+
+  // 국가별 지역 매핑
+  const regionsByCountry: Record<string, string[]> = {
+    'Scotland': ['Highland', 'Lowland', 'Speyside', 'Islay', 'Islands', 'Campbeltown', '기타'],
+    'Ireland': ['Ireland', '기타'],
+    'United States': ['Kentucky', 'Tennessee', '기타'],
+    'Japan': ['Japan', '기타'],
+    'Canada': ['Canada', '기타'],
+    'France': ['France', '기타'],
+    'Mexico': ['기타'],
+    'Jamaica': ['기타'],
+    'Barbados': ['기타'],
+    'Cuba': ['기타'],
+    'Dominican Republic': ['기타'],
+    'India': ['기타'],
+    'Taiwan': ['기타'],
+    'South Korea': ['기타'],
+    'Australia': ['기타'],
+    'New Zealand': ['기타'],
+    'South Africa': ['기타'],
+    '기타': ['기타'],
+  };
+
+  const countries = [
+    'Scotland', 'Ireland', 'United States', 'Japan', 'Canada', 'France', 
+    'Mexico', 'Jamaica', 'Barbados', 'Cuba', 'Dominican Republic', 'India', 
+    'Taiwan', 'South Korea', 'Australia', 'New Zealand', 'South Africa', '기타'
+  ];
+
+  // 선택된 국가에 따른 지역 목록 필터링
+  const availableRegions = formData.country 
+    ? (regionsByCountry[formData.country] || ['기타'])
+    : [];
 
   const content = (
     <div
@@ -360,7 +450,7 @@ const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSucces
         </div>
       </header>
       
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: '16px', paddingBottom: '80px' }}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
         {/* 크롤링 기능 (새 글 등록 시에만) */}
@@ -393,8 +483,127 @@ const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSucces
                 fontSize: '13px',
                 backgroundColor: crawlMessage.includes('✅') ? '#D1FAE5' : '#FEE2E2',
                 color: crawlMessage.includes('✅') ? '#065F46' : '#991B1B',
+                marginBottom: '8px'
               }}>
                 {crawlMessage}
+              </div>
+            )}
+            {crawledSourceData && (
+              <div style={{ marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSourceData(!showSourceData)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    backgroundColor: '#F3F4F6',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    color: '#374151',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span>📋 크롤링 소스 데이터 {showSourceData ? '숨기기' : '보기'}</span>
+                  <span>{showSourceData ? '▲' : '▼'}</span>
+                </button>
+                {showSourceData && (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '12px',
+                    backgroundColor: '#F9FAFB',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    maxHeight: '400px',
+                    overflowY: 'auto',
+                    fontFamily: 'monospace'
+                  }}>
+                    <div style={{ marginBottom: '12px', fontWeight: 'bold', color: '#374151' }}>
+                      추출된 값:
+                    </div>
+                    <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: 'white', borderRadius: '4px' }}>
+                      <div><strong>한글명:</strong> {crawledSourceData.extractedValues.koreanName || '없음'}</div>
+                      <div><strong>영문명:</strong> {crawledSourceData.extractedValues.englishName || '없음'}</div>
+                      <div><strong>브랜드:</strong> {crawledSourceData.extractedValues.brand || '없음'}</div>
+                      <div><strong>숙성년수:</strong> {crawledSourceData.extractedValues.age !== undefined ? `${crawledSourceData.extractedValues.age}년` : '없음'}</div>
+                      <div><strong>타입:</strong> {crawledSourceData.extractedValues.type || '없음'} {crawledSourceData.extractedValues.typeRaw && `(원본: ${crawledSourceData.extractedValues.typeRaw})`}</div>
+                      <div><strong>도수:</strong> {crawledSourceData.extractedValues.abv ? `${crawledSourceData.extractedValues.abv}%` : '없음'}</div>
+                      <div><strong>용량:</strong> {crawledSourceData.extractedValues.volume ? `${crawledSourceData.extractedValues.volume}ml` : '없음'}</div>
+                      <div><strong>국가:</strong> {crawledSourceData.extractedValues.country || '없음'}</div>
+                      <div><strong>지역:</strong> {crawledSourceData.extractedValues.region || '없음'}</div>
+                      <div><strong>캐스크:</strong> {crawledSourceData.extractedValues.cask || '없음'}</div>
+                      <div><strong>가격:</strong> {crawledSourceData.extractedValues.price ? `${crawledSourceData.extractedValues.price.toLocaleString()}원` : '없음'}</div>
+                      <div><strong>향:</strong> {crawledSourceData.extractedValues.aroma || '없음'}</div>
+                      <div><strong>맛:</strong> {crawledSourceData.extractedValues.taste || '없음'}</div>
+                      <div><strong>여운:</strong> {crawledSourceData.extractedValues.finish || '없음'}</div>
+                      <div><strong>이미지 URL:</strong> {crawledSourceData.extractedValues.imageUrl || '없음'}</div>
+                      <div><strong>설명:</strong> {crawledSourceData.extractedValues.description ? `${crawledSourceData.extractedValues.description.substring(0, 100)}...` : '없음'}</div>
+                      <div><strong>평점:</strong> {crawledSourceData.extractedValues.reviewRate || '없음'}</div>
+                      <div><strong>리뷰 개수:</strong> {crawledSourceData.extractedValues.reviewCount || '없음'}</div>
+                    </div>
+                    
+                    {crawledSourceData.debugInfo && (
+                      <>
+                        <div style={{ marginTop: '12px', marginBottom: '8px', fontWeight: 'bold', color: '#374151' }}>
+                          원본 HTML 데이터:
+                        </div>
+                        <pre style={{
+                          padding: '8px',
+                          backgroundColor: 'white',
+                          borderRadius: '4px',
+                          overflowX: 'auto',
+                          overflowY: 'auto',
+                          fontSize: '10px',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          maxHeight: '300px',
+                          fontFamily: 'monospace',
+                          lineHeight: '1.4'
+                        }}>
+                          {crawledSourceData.debugInfo.rawHtml || '원본 HTML 데이터가 없습니다.'}
+                        </pre>
+                        
+                        <div style={{ marginTop: '12px', marginBottom: '8px', fontWeight: 'bold', color: '#374151' }}>
+                          원본 Information 데이터 (JSON):
+                        </div>
+                        <pre style={{
+                          padding: '8px',
+                          backgroundColor: 'white',
+                          borderRadius: '4px',
+                          overflowX: 'auto',
+                          fontSize: '10px',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          maxHeight: '200px',
+                          overflowY: 'auto'
+                        }}>
+                          {JSON.stringify(crawledSourceData.debugInfo.rawInformation || [], null, 2)}
+                        </pre>
+                        
+                        <div style={{ marginTop: '12px', marginBottom: '8px', fontWeight: 'bold', color: '#374151' }}>
+                          원본 Tasting Notes 데이터 (JSON):
+                        </div>
+                        <pre style={{
+                          padding: '8px',
+                          backgroundColor: 'white',
+                          borderRadius: '4px',
+                          overflowX: 'auto',
+                          fontSize: '10px',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          maxHeight: '200px',
+                          overflowY: 'auto'
+                        }}>
+                          {JSON.stringify(crawledSourceData.debugInfo.rawTastingNotes || [], null, 2)}
+                        </pre>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -485,14 +694,49 @@ const MobileWhiskeyForm: React.FC<MobileWhiskeyFormProps> = ({ onClose, onSucces
 
             <div>
               <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
+                국가
+              </label>
+              <select
+                value={formData.country}
+                onChange={(e) => handleInputChange('country', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '8px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="">국가 선택</option>
+                {countries.map(country => (
+                  <option key={country} value={country}>{country}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
                 지역
               </label>
-              <Input
-                type="text"
-                placeholder="예: Speyside"
+              <select
                 value={formData.region}
-                onChange={(value) => handleInputChange('region', value)}
-              />
+                onChange={(e) => handleInputChange('region', e.target.value)}
+                disabled={!formData.country}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  backgroundColor: formData.country ? 'white' : '#F3F4F6',
+                  cursor: formData.country ? 'pointer' : 'not-allowed'
+                }}
+              >
+                <option value="">지역 선택</option>
+                {availableRegions.map(region => (
+                  <option key={region} value={region}>{region}</option>
+                ))}
+              </select>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

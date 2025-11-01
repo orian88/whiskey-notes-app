@@ -968,6 +968,41 @@ const MobileWhiskeyDetail: React.FC<MobileWhiskeyDetailProps> = ({ id: propId, o
           삭제
         </Button>
       </div>
+
+      {/* 나무위키 검색 링크 */}
+      <div style={{ marginTop: '24px', marginBottom: '80px' }}>
+        <a
+          href={`https://namu.wiki/Search/${encodeURIComponent(whiskey.name)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '16px',
+            backgroundColor: '#F9FAFB',
+            borderRadius: '12px',
+            border: '2px solid #E5E7EB',
+            textDecoration: 'none',
+            transition: 'all 0.2s',
+            fontWeight: '600',
+            color: '#8B4513'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#F3F4F6';
+            e.currentTarget.style.borderColor = '#8B4513';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#F9FAFB';
+            e.currentTarget.style.borderColor = '#E5E7EB';
+          }}
+        >
+          <span style={{ fontSize: '20px' }}>🌳</span>
+          <span style={{ fontSize: '16px' }}>나무위키에서 검색</span>
+          <span style={{ fontSize: '14px' }}>→</span>
+        </a>
+      </div>
       </div>
       </div>
     </div>

@@ -464,6 +464,67 @@ const MobilePurchaseHistoryDetail: React.FC<MobilePurchaseHistoryDetailProps> = 
 
         </div>
 
+      {/* 소비 제외 처리 카드 */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        padding: '16px', 
+        borderRadius: '12px',
+        marginBottom: '16px',
+        border: '1px solid #E5E7EB',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+      }}>
+        <div style={{ 
+          fontSize: '18px', 
+          fontWeight: 600, 
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          color: '#1F2937'
+        }}>
+          <span>🚫</span> 소비 제외 처리
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <span style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>선물함</span>
+            <input
+              type="checkbox"
+              checked={Boolean((purchase as any)?.is_gifted)}
+              onChange={async (e) => {
+                try {
+                  const is_gifted = e.target.checked;
+                  await supabase.from('purchases').update({ is_gifted }).eq('id', purchase.id);
+                  setPurchase((prev: any) => ({ ...prev, is_gifted }));
+                } catch (err) {
+                  console.error('선물함 설정 오류:', err);
+                  alert('설정 중 오류가 발생했습니다.');
+                }
+              }}
+            />
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <span style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>사용 불가(파손/기타)</span>
+            <input
+              type="checkbox"
+              checked={Boolean((purchase as any)?.is_unavailable)}
+              onChange={async (e) => {
+                try {
+                  const is_unavailable = e.target.checked;
+                  await supabase.from('purchases').update({ is_unavailable }).eq('id', purchase.id);
+                  setPurchase((prev: any) => ({ ...prev, is_unavailable }));
+                } catch (err) {
+                  console.error('사용 불가 설정 오류:', err);
+                  alert('설정 중 오류가 발생했습니다.');
+                }
+              }}
+            />
+          </label>
+          <div style={{ fontSize: '11px', color: '#6B7280' }}>
+            • 체크 시 진열장과 테이스팅 추가의 위스키 선택 목록에서 제외됩니다. 구매 기록은 유지됩니다.
+          </div>
+        </div>
+      </div>
+
       {/* 구매 정보 카드 */}
       <div style={{ 
         backgroundColor: 'white', 

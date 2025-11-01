@@ -160,8 +160,20 @@ const MobileAppContainer: React.FC = () => {
             </PageWrapper>
           )}
 
-          {/* 설정 페이지 */}
-          {location.pathname === '/mobile/settings' && <MobileSettings />}
+          {/* 설정 페이지 - 라우트 접근 시에도 오버레이로 표시 */}
+          {location.pathname === '/mobile/settings' && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 10000,
+              pointerEvents: 'auto'
+            }}>
+              <MobileSettings />
+            </div>
+          )}
         </div>
       </Suspense>
     </MobileLayout>

@@ -329,6 +329,8 @@ const MobileTastingNotesForm: React.FC<MobileTastingNotesFormProps> = ({ onClose
           final_price_krw,
           original_price,
           discount_price,
+          is_gifted,
+          is_unavailable,
           whiskeys(
             id,
             name,
@@ -346,7 +348,9 @@ const MobileTastingNotesForm: React.FC<MobileTastingNotesFormProps> = ({ onClose
       if (error) throw error;
       
       // 각 purchase의 실제 남은양 계산 (tasting_notes 기반)
-      const purchasesWithRealRemaining = await Promise.all((data || []).map(async (item: any) => {
+      const purchasesWithRealRemaining = await Promise.all(((data || [])
+        .filter((d: any) => !(d.is_gifted || d.is_unavailable))
+      ).map(async (item: any) => {
         // 해당 purchase의 모든 tasting_notes 조회
         const { data: tastingNotes } = await supabase
           .from('tasting_notes')

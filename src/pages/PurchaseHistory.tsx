@@ -192,6 +192,8 @@ const PurchaseHistory: React.FC = () => {
           id,
           whiskey_id,
           purchase_date,
+          is_gifted,
+          is_unavailable,
           original_price,
           original_currency,
           original_exchange_rate,
@@ -569,6 +571,8 @@ const PurchaseHistory: React.FC = () => {
           .from('purchases')
           .select(`
             id,
+            is_gifted,
+            is_unavailable,
             whiskey_id,
             purchase_date,
             original_price,

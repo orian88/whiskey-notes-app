@@ -85,6 +85,8 @@ const MobileMyCollection: React.FC = () => {
           id,
           purchase_date,
           purchase_price,
+          is_gifted,
+          is_unavailable,
           whiskeys:whiskey_id (
             name,
             brand,
@@ -100,7 +102,7 @@ const MobileMyCollection: React.FC = () => {
 
       // 각 구매에 대해 테이스팅 정보 가져오기
       const collectionsWithTasting = await Promise.all(
-        (purchases || []).map(async (purchase: any) => {
+        ((purchases || []).filter((p: any) => !(p.is_gifted || p.is_unavailable))).map(async (purchase: any) => {
           const { data: tastingNotes } = await supabase
             .from('tasting_notes')
             .select('rating, tasting_date, amount_consumed')

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores';
-import MobileLayout from '../components/MobileLayout';
+import FixedCloseBar from '../components/FixedCloseBar';
 import Button from '../components/Button';
 import { supabase } from '../lib/supabase';
 import { getCurrentExchangeRate, convertKrwToUsd } from '../utils/priceCollector';
@@ -51,6 +51,12 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
   const [recentPurchaseCount, setRecentPurchaseCount] = useState(() => {
     const saved = localStorage.getItem('home_recentPurchaseCount');
     return saved ? Number(saved) : 5;
+  });
+
+  // 크롤링 소스 데이터 표시 옵션
+  const [showCrawlSourceData, setShowCrawlSourceData] = useState(() => {
+    const saved = localStorage.getItem('show_crawlSourceData');
+    return saved ? saved === 'true' : false;
   });
 
   // 환율 업데이트 관련 상태
@@ -203,11 +209,10 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
       
       {/* Scrollable Content Area */}
       <div style={{
-        position: 'absolute', top: '56px', left: 0, right: 0, bottom: 0,
+        position: 'absolute', top: '56px', left: 0, right: 0, bottom: '60px', // 하단 닫기 버튼 공간 확보
         overflowY: 'auto', WebkitOverflowScrolling: 'touch'
       }}>
-    <MobileLayout showSearchBar={false}>
-      <div style={{ padding: '16px', height: '100%' }}>
+      <div style={{ padding: '16px', paddingBottom: '20px' }}>
         <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>⚙️ 설정</h2>
         
         {/* 홈 화면 로딩 속도 설정 */}
@@ -359,6 +364,48 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
           </div>
         </div>
 
+        {/* 크롤링 소스 데이터 표시 설정 */}
+        <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '8px', marginBottom: '16px', border: '1px solid #E5E7EB' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>🔍 크롤링 설정</h3>
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              marginBottom: '8px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              cursor: 'pointer'
+            }}
+            onClick={() => {
+              const newValue = !showCrawlSourceData;
+              setShowCrawlSourceData(newValue);
+              localStorage.setItem('show_crawlSourceData', String(newValue));
+            }}
+            >
+              <span>크롤링 소스 데이터 자동 표시</span>
+              <input
+                type="checkbox"
+                checked={showCrawlSourceData}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setShowCrawlSourceData(newValue);
+                  localStorage.setItem('show_crawlSourceData', String(newValue));
+                }}
+                style={{ 
+                  width: '18px', 
+                  height: '18px', 
+                  cursor: 'pointer'
+                }}
+              />
+            </label>
+            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px', padding: '8px', backgroundColor: '#EFF6FF', borderRadius: '6px' }}>
+              위스키 추가 폼에서 크롤링 후 소스 데이터(원본 HTML, JSON 등)를 자동으로 표시합니다. 
+              필요 시에만 표시하려면 체크 해제하세요.
+            </div>
+          </div>
+        </div>
+
         {/* 환율 업데이트 */}
         <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '8px', marginBottom: '16px', border: '1px solid #E5E7EB' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>💰 환율 & USD 가격 업데이트</h3>
@@ -427,8 +474,10 @@ const MobileSettings: React.FC<MobileSettingsProps> = ({ onClose }) => {
           </div>
         </div>
       </div>
-    </MobileLayout>
       </div>
+
+      {/* 하단 고정 닫기 버튼 (오버레이 공통 UX) */}
+      <FixedCloseBar label="닫기" onClick={handleClose} opacity={0.92} />
     </div>
   );
 };

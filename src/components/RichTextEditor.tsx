@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 
 interface RichTextEditorProps {
   content: string;
@@ -7,6 +7,8 @@ interface RichTextEditorProps {
   style?: React.CSSProperties;
   disabled?: boolean;
 }
+
+type ViewMode = 'edit' | 'preview' | 'html';
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({
   content,
@@ -18,6 +20,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const editorRef = useRef<HTMLDivElement>(null);
   const composingRef = useRef<boolean>(false);
   const lastAppliedHtmlRef = useRef<string>('');
+  const [viewMode, setViewMode] = useState<ViewMode>('edit');
+  const [htmlText, setHtmlText] = useState<string>('');
 
   // 외부 content 변경 시에만 DOM 동기화 (커서 밀림 방지)
   useEffect(() => {
@@ -39,6 +43,19 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       }
     };
   }, []);
+
+  // content 변경 시 htmlText 동기화
+  useEffect(() => {
+    setHtmlText(content);
+  }, [content]);
+
+  // viewMode 변경 시 처리
+  useEffect(() => {
+    if (viewMode === 'preview' || viewMode === 'edit') {
+      // preview나 edit 모드로 전환 시 content를 htmlText로 동기화
+      setHtmlText(content);
+    }
+  }, [viewMode, content]);
 
   const execCommand = useCallback((command: string, value?: string) => {
     if (disabled) return; // disabled 상태에서는 명령 실행 안함
@@ -88,6 +105,19 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       onChange(html);
     }
   }, [onChange]);
+
+  const handleHtmlApply = useCallback(() => {
+    onChange(htmlText);
+    setViewMode('edit');
+  }, [htmlText, onChange]);
+
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    if (mode === 'html') {
+      // HTML 보기 모드로 전환 시 현재 content를 htmlText에 설정
+      setHtmlText(content);
+    }
+    setViewMode(mode);
+  }, [content]);
 
   const MenuButton = React.memo(({ 
     onClick, 
@@ -152,6 +182,32 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         gap: '4px',
         alignItems: 'center'
       }}>
+        {/* 보기 모드 전환 */}
+        <div style={{ display: 'flex', gap: '2px', alignItems: 'center', marginRight: '8px' }}>
+          <MenuButton 
+            onClick={() => handleViewModeChange('edit')} 
+            title="편집 모드" 
+            isActive={viewMode === 'edit'}
+            disabled={disabled}
+          >
+            <span style={{ fontSize: '12px' }}>✏️ 편집</span>
+          </MenuButton>
+          <MenuButton 
+            onClick={() => handleViewModeChange('preview')} 
+            title="미리보기" 
+            isActive={viewMode === 'preview'}
+          >
+            <span style={{ fontSize: '12px' }}>👁️ 미리보기</span>
+          </MenuButton>
+          <MenuButton 
+            onClick={() => handleViewModeChange('html')} 
+            title="HTML 보기" 
+            isActive={viewMode === 'html'}
+          >
+            <span style={{ fontSize: '12px' }}>📄 HTML</span>
+          </MenuButton>
+        </div>
+        <div style={{ width: '1px', height: '20px', backgroundColor: '#D1D5DB', margin: '0 4px' }}></div>
         {/* 텍스트 스타일 */}
         <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
           <MenuButton onClick={() => execCommand('bold')} title="굵게" disabled={disabled}>
@@ -218,28 +274,121 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
       {/* 에디터 */}
       <div style={{ border: '1px solid #D1D5DB', borderTop: 'none', borderRadius: '0 0 8px 8px', backgroundColor: '#FFFFFF' }}>
-        <div
-          ref={editorRef}
-          contentEditable={!disabled}
-          suppressContentEditableWarning={true}
-          onInput={handleInput}
-          onCompositionStart={handleCompositionStart}
-          onCompositionEnd={handleCompositionEnd}
-          style={{
-            minHeight: '150px',
-            padding: '12px',
-            fontSize: '14px',
-            fontFamily: 'inherit',
-            lineHeight: '1.6',
-            outline: 'none',
-            overflow: 'auto',
-            whiteSpace: 'pre-wrap',
-            backgroundColor: disabled ? '#F9FAFB' : '#FFFFFF',
-            color: disabled ? '#9CA3AF' : 'inherit',
-            cursor: disabled ? 'not-allowed' : 'text'
-          }}
-          data-placeholder={placeholder}
-        />
+        {viewMode === 'edit' && (
+          <div
+            ref={editorRef}
+            contentEditable={!disabled}
+            suppressContentEditableWarning={true}
+            onInput={handleInput}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
+            style={{
+              minHeight: '150px',
+              padding: '12px',
+              fontSize: '14px',
+              fontFamily: 'inherit',
+              lineHeight: '1.6',
+              outline: 'none',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              backgroundColor: disabled ? '#F9FAFB' : '#FFFFFF',
+              color: disabled ? '#9CA3AF' : 'inherit',
+              cursor: disabled ? 'not-allowed' : 'text'
+            }}
+            data-placeholder={placeholder}
+          />
+        )}
+        {viewMode === 'preview' && (
+          <div
+            style={{
+              minHeight: '150px',
+              padding: '12px',
+              fontSize: '14px',
+              fontFamily: 'inherit',
+              lineHeight: '1.6',
+              overflow: 'auto',
+              backgroundColor: '#FFFFFF'
+            }}
+            dangerouslySetInnerHTML={{ __html: content || '<p style="color: #9CA3AF;">내용이 없습니다.</p>' }}
+          />
+        )}
+        {viewMode === 'html' && (
+          <div style={{ position: 'relative' }}>
+            <textarea
+              value={htmlText}
+              onChange={(e) => setHtmlText(e.target.value)}
+              style={{
+                width: '100%',
+                minHeight: '150px',
+                padding: '12px',
+                fontSize: '13px',
+                fontFamily: 'Consolas, "Courier New", monospace',
+                lineHeight: '1.6',
+                border: 'none',
+                outline: 'none',
+                resize: 'vertical',
+                backgroundColor: '#FFFFFF',
+                whiteSpace: 'pre',
+                overflow: 'auto'
+              }}
+              spellCheck={false}
+            />
+            <div style={{
+              position: 'absolute',
+              bottom: '12px',
+              right: '12px',
+              display: 'flex',
+              gap: '4px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setViewMode('edit')}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '4px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#374151',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#F3F4F6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleHtmlApply}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid #3B82F6',
+                  borderRadius: '4px',
+                  backgroundColor: '#3B82F6',
+                  color: '#FFFFFF',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2563EB';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#3B82F6';
+                }}
+              >
+                적용
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
